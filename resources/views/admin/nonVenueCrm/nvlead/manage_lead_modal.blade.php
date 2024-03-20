@@ -9,6 +9,23 @@
                 <div class="modal-body text-sm">
                     @csrf
                     <div class="row">
+                        <div class="col-sm-12 mb-3">
+                            <div class="form-group">
+                                <label for="nv_nvrm_inp">Select NVRM (<i style="font-size:13px">Select Nvrm to assign this lead to that Nvrm</i>)</label>
+                                <div class="d-flex">
+                                    @foreach ($getRm as $rm)
+                                            <div class="custom-control custom-radio my-1 mx-2">
+                                                <input class="custom-control-input" type="radio"
+                                                    id="team_member_{{ $rm->name }}" name="nvrm_id"
+                                                    value="{{ $rm->id }}"
+                                                    {{ isset($filter_params['team_members']) && $filter_params['team_members'] == $rm->name ? 'checked' : '' }}>
+                                                <label for="team_member_{{ $rm->name }}"
+                                                    class="custom-control-label">{{ $rm->name }}</label>
+                                            </div>
+                                        @endforeach
+                                </div>
+                            </div>
+                        </div>
                         <div class="col-sm-4 mb-3">
                             <div class="form-group">
                                 <label for="nv_lead_name_inp">Name</label>

@@ -23,4 +23,7 @@ class nvrmTask extends Model
                 return "This model has been {$eventName} by User ID: {$userId}";
             });
     }
+    public function creator() {
+        return $this->belongsTo(TeamMember::class, 'created_by');
+    }    
 }

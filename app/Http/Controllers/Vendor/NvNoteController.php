@@ -5,10 +5,13 @@ namespace App\Http\Controllers\Vendor;
 use App\Http\Controllers\Controller;
 use App\Models\nvLeadForward;
 use App\Models\nvLeadForwardInfo;
+use App\Models\nvLead;
+use App\Models\nvrmLeadForward;
 use App\Models\nvNote;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Validator;
+use Carbon\Carbon;
 
 class NvNoteController extends Controller {
     public function manage_ajax($note_id) {
@@ -47,11 +50,21 @@ class NvNoteController extends Controller {
         }
 
         $note->message = $request->note_message;
+        $note->is_solved = '0';
         $note->save();
 
         $lead_forwards = nvLeadForward::where(['lead_id' => $request->lead_id, 'forward_to' => $auth_user->id])->first();
         $lead_forwards->read_status = true;
         $lead_forwards->save();
+
+        $nvrm_lead_forwards = nvrmLeadForward::where(['lead_id' => $request->lead_id])->first();
+        $nvrm_lead_forwards->whatsapp_msg_time = Carbon::now();     
+        $nvrm_lead_forwards->save();
+
+        $nvlead = nvLead::where(['id' => $request->lead_id])->first();
+        $nvlead->whatsapp_msg_time = Carbon::now();
+        $nvlead->save();
+
         session()->flash('status', ['success' => true, 'alert_type' => 'success', 'message' => $msg]);
         return redirect()->back();
     }

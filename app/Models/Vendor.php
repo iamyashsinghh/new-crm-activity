@@ -21,4 +21,7 @@ class Vendor extends Authenticable {
                 return "This model has been {$eventName} by User ID: {$userId}";
             });
     }
+    public function get_category() {
+        return $this->belongsTo(VendorCategory::class, 'category_id');
+    }  
 }

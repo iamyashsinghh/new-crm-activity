@@ -8,7 +8,6 @@
 @section('title', $page_title)
 @section('main')
     <style>
-        
     </style>
     <div class="content-wrapper pb-5">
         <section class="content-header">
@@ -35,6 +34,17 @@
                                     href="{{ route('nonvenue.lead.status.update', $lead->id) }}/Active">Active</a></li>
                             <li><a class="dropdown-item" href="javascript:void(0);" data-bs-toggle="modal"
                                     data-bs-target="#manageLeadStatusModal">Done</a></li>
+                        </ul>
+                    </div>
+                    <div class="dropdown d-inline-block">
+                        @if ($lead->service_status == 1)
+                            <button class="btn btn-success dropdown-toggle btn-xs px-2 m-1" data-bs-toggle="dropdown"><i class="fa fa-phone"></i> Service Status: Contacted</button>
+                        @else
+                            <button class="btn btn-danger dropdown-toggle btn-xs px-2 m-1" data-bs-toggle="dropdown"><i class="fa fa-phone-slash"></i> Service Status: Not Contacted</button>
+                        @endif
+                        <ul class="dropdown-menu">
+                            <li><a class="dropdown-item" href="{{route('nonvenue.lead.serviceStatus.update', $lead->id)}}/1">Contacted</a></li>
+                            <li><a class="dropdown-item" href="{{route('nonvenue.lead.serviceStatus.update', $lead->id)}}/0">Not Contacted</a></li>
                         </ul>
                     </div>
                 </div>
@@ -82,7 +92,7 @@
                                                         <td>{{ $list->get_service_category->name }}</td>
                                                         <td class="text-center text-nowrap">
                                                             <button
-                                                                onclick="handle_lead_forward({{ $list->get_service_category->id }}, `{{ $list->get_service_category->name }}`)"
+                                                                onclick="handle_lead_forward({{ $list->get_service_category->id }}, `{{ $list->get_service_category->name }}` , `{{$list->created_at}}`)"
                                                                 class="btn p-0 mx-2" title="Forward"
                                                                 style="color: var(--wb-dark-red);"><i
                                                                     class="fa fa-paper-plane"></i></button>
@@ -300,6 +310,47 @@
                                 </div>
                             </div>
                         </div>
+                        <div class="card mb-5">
+                            <div class="card-header text-light" style="background-color: var(--wb-renosand);">
+                                <h3 class="card-title">Vendor Help Section</h3>
+                            </div>
+                            <div class="card-body">
+                                <div class="table-responsive">
+                                    <table id="serverTable" class="table mb-0">
+                                        <thead>
+                                            <tr>
+                                                <th class="text-nowrap">S.No.</th>
+                                                <th class="">Message</th>
+                                                <th class="">Created At</th>
+                                                <th class="">Created By</th>
+                                            </tr>
+                                        </thead>
+                                        <body>
+                                            @php
+                                            $helpmsg = $lead->get_nvrm_help_messages();
+                                            @endphp
+                                            @if (sizeof($helpmsg) > 0)
+                                            @foreach ($helpmsg as $key => $list)
+                                            <tr style="{{ $list->is_solved === 0 ? 'background-color: #00992385;' : '' }}">
+                                                <td>{{$key+1}}</td>
+                                                <td>
+                                                    <button class="btn" onclick="handle_view_message(`{{$list->message ?: 'N/A'}}`)"><i class="fa fa-comment-dots" style="color: var(--wb-renosand);"></i></button>
+                                                </td>
+                                                <td class="text-nowrap">{{date('d-M-Y h:i a', strtotime($list->created_at))}}</td>
+                                                <td class="text-nowrap">{{$list->created_by_name}} -- {{$list->category_name}}</td>
+                                                
+                                            </tr>
+                                            @endforeach
+                                            @else
+                                            <tr>
+                                                <td class="text-center text-muted" colspan="5">No data available in table</td>
+                                            </tr>
+                                            @endif
+                                        </body>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -510,8 +561,7 @@
                 <div class="modal-content">
                     <div class="modal-header">
                         <h4 class="modal-title">Create Event</h4>
-                        <button type="button" class="btn text-secondary" data-bs-dismiss="modal" aria-label="Close"><i
-                                class="fa fa-times"></i></button>
+                        <button type="button" class="btn text-secondary" data-bs-dismiss="modal" aria-label="Close"><i class="fa fa-times"></i></button>
                     </div>
                     <form id="manage_event_form" method="post">
                         <div class="modal-body text-sm">
@@ -584,6 +634,7 @@
                     <form action="{{ route('nonvenue.lead.forward') }}" method="post">
                         @csrf
                         <input type="hidden" name="forward_id" value="{{ $lead->id }}">
+                        <input type="hidden" name="nvrm_msg_date" id="nvrm_msg_id" value="">
                         <div class="modal-body text-sm">
                             <div>
                                 <div class="">
@@ -841,15 +892,16 @@
         //         }
         //     })
         // }
-        function handle_lead_forward(vendor_category_id, category_name) {
+        function handle_lead_forward(vendor_category_id, category_name , rm_msg_created_at) {
             const url = `{{ route('nonvenue.getVendorsByCategory') }}/${vendor_category_id}`;
             const forwardLeadModal = document.getElementById('forwardLeadModal');
             const modalHeading = forwardLeadModal.querySelector('.modal-title');
             const modalBody = forwardLeadModal.querySelector('.modal-body');
+            const nvrm_msg_id = document.getElementById('nvrm_msg_id');
             modalHeading.innerHTML =
                 `Forward Lead to <span style="color: var(--wb-renosand);">${category_name} Vendors</span>`;
             modalBody.innerHTML = "";
-
+            nvrm_msg_id.value = rm_msg_created_at;
             fetch(url).then(response => response.json()).then(data => {
                 if (data.success === true) {
                     const vendors = data.vendors;

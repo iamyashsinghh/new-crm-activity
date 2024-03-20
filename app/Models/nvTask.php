@@ -20,4 +20,7 @@ class nvTask extends Model {
                 return "This model has been {$eventName} by User ID: {$userId}";
             });
     }
+    public function creator() {
+        return $this->belongsTo(Vendor::class, 'created_by');
+    }  
 }

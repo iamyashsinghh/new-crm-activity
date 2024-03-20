@@ -13,13 +13,14 @@
                         <h1>View Lead</h1>
                     </div>
                 </div>
+                {{-- onclick="nvrm_forword_preloader(this)"  --}}
                 <div class="button-group my-4">
                     <a href="javascript:void(0);" class="btn text-light btn-sm buttons-print mx-1" data-bs-toggle="modal"
                         data-bs-target="#forwardLeadModal" style="background-color: var(--wb-dark-red)"><i
                             class="fa fa-paper-plane"></i> Forward to RM's</a>
                     <button onclick="handle_get_forward_info({{ $lead->lead_id }})" class="btn btn-sm mx-1 btn-info"
                         title="Forward info">Forward Info: {{ $lead->get_lead_forwards->count() }}</button>
-                    <a onclick="nvrm_forword_preloader(this)" class="btn text-light btn-sm buttons-print mx-1"
+                    <a href="javascript:void(0);" data-bs-toggle="modal" data-bs-target="#forwardnvrmLeadModal" class="btn text-light btn-sm buttons-print mx-1"
                         style="background-color: var(--wb-dark-red)"><i class="fa fa-paper-plane"></i>Forward to NvRM</a>
                 </div>
             </div>
@@ -676,6 +677,33 @@
                 </div>
             </div>
         </div>
+        <div class="modal fade" id="forwardnvrmLeadModal" tabindex="-1">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header align-items-center">
+                        <h4 class="modal-title">Forward Lead's to NVRM's</h4>
+                        <button type="button" class="btn text-secondary" data-bs-dismiss="modal" aria-label="Close"><i
+                                class="fa fa-times"></i></button>
+                    </div>
+                    <div class="row px-3">
+                        @foreach ($nvrm_members as $rm)
+                            <div class="custom-control custom-radio my-1 mx-2">
+                                <input class="custom-control-input" type="radio" name="forward_rms_id"
+                                    id="team_member_{{ $rm->id }}" value="{{ $rm->id }}">
+                                <label for="team_member_{{ $rm->id }}"
+                                    class="custom-control-label">{{ $rm->name }}</label>
+                            </div>
+                        @endforeach
+                    </div>
+                    <div class="modal-footer">
+                        <a href="{{ route('admin.lead.list') }}" class="btn btn-sm bg-secondary m-1"
+                            data-bs-dismiss="modal">Cancel</a>
+                        <button type="submit" onclick="nvrm_forword_preloader(this)" class="btn btn-sm text-light m-1"
+                            style="background-color: var(--wb-dark-red);">Forward</button>
+                    </div>
+                </div>
+            </div>
+        </div>
         @include('admin.venueCrm.lead.forward_leads_modal')
         @include('includes.manage_booking_modal')
     </div>
@@ -711,9 +739,9 @@
         function sendPostRequest() {
             const postData = {
                 lead_id: `{{ $lead->lead_id }}`,
+                forward_rms_id : document.querySelector('input[name="forward_rms_id"]:checked').value,
                 _token: csrfToken
             };
-
             return fetch(postUrl, {
                     method: 'POST',
                     headers: {
@@ -724,6 +752,5 @@
                 })
                 .then(response => response.json());
         }
-
     </script>
 @endsection

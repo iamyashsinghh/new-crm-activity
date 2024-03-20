@@ -59,9 +59,9 @@ class LeadController extends Controller
         }
 
         $rm_members = TeamMember::select('id', 'name')->where('role_id', 4)->orderBy('name', 'asc')->get();
-        $getRm = TeamMember::select('id', 'name')->where('venue_name', 'RM >< Venue')->where('status', 1)->get();
+        $getRm = TeamMember::select('id', 'name')->where('venue_name', 'RM >< Venue')->get();
         $page_heading = $filter_params ? "Leads - Filtered" : "Leads";
-        $whatsapp_campaigns = WhatsappCampain::select('id','name')->where('status', 1)->get();
+        $whatsapp_campaigns = WhatsappCampain::select('id', 'name')->where('status', 1)->get();
         return view('admin.venueCrm.lead.list', compact('page_heading', 'filter_params', 'rm_members', 'getRm', 'whatsapp_campaigns'));
     }
 
@@ -123,7 +123,7 @@ class LeadController extends Controller
         }
 
         if ($request->lead_read_status != null) {
-            $leads->where('lead_read_status', $request->lead_read_status);
+            $leads->where('read_status', $request->lead_read_status);
         }
 
         if ($request->service_status != null) {
@@ -241,7 +241,8 @@ class LeadController extends Controller
         $rm_members = TeamMember::select('id', 'name')->where(['role_id' => 4, 'status' => 1])->orderBy('name', 'asc')->get();
         $lead = Lead::find($lead_id);
         $done_leads = LeadForward::where(['lead_id' => $lead_id, 'lead_status' => 'Done'])->get();
-        return view('admin.venueCrm.lead.view', compact('lead', 'rm_members', 'done_leads'));
+        $nvrm_members = TeamMember::select('id', 'name')->where('venue_name', 'RM >< Non Venue')->get();
+        return view('admin.venueCrm.lead.view', compact('lead', 'rm_members', 'done_leads', 'nvrm_members'));
     }
 
     public function delete($lead_id)
@@ -293,50 +294,48 @@ class LeadController extends Controller
     }
 
     public function lead_forward_nvrm(Request $request)
-{
-    $rm_lead_id = $request->lead_id;
-    $auth_user = Auth::guard('admin')->user();
-    $leadData = Lead::where('lead_id', $rm_lead_id)->first();
-    if (!$leadData) {
-        return response()->json(['success' => false, 'message' => 'Lead data not found.'], 404);
-    }
-    $exist_lead = nvLead::where('mobile', $leadData->mobile)->first();
-    if ($exist_lead) {
-        $lead_link = route('admin.nvlead.view', $exist_lead->id);
-        return response()->json(['success' => true, 'alert_type' => 'info', 'message' => "Lead is already exist with this mobile number. Click on the link below to view the lead.", 'link' => $lead_link], 200);
-    } else {
-        $lead = new nvLead();
-        $lead->created_by = $auth_user->id;
-        $lead->lead_datetime = now();
-        $lead->name = $leadData->name;
-        $lead->email = $leadData->email;
-        $lead->mobile = $leadData->mobile;
-        $lead->alternate_mobile = $leadData->alternate_mobile;
-        $lead->event_datetime = $leadData->event_datetime;
-        if ($lead->save()) {
-            $nvrmIds = ['72'];
-            foreach ($nvrmIds as $rm_id) {
-                $exist_lead_forward = nvrmLeadForward::where(['lead_id' => $lead->id, 'forward_to' => $rm_id])->first();
-                if (!$exist_lead_forward) {
-                    $lead_forward = new nvrmLeadForward();
-                    $lead_forward->lead_id = $lead->id;
-                    $lead_forward->forward_to = $rm_id;
-                    $lead_forward->lead_datetime = $this->current_timestamp;
-                    $lead_forward->name = $lead->name;
-                    $lead_forward->email = $lead->email;
-                    $lead_forward->mobile = $lead->mobile;
-                    $lead_forward->alternate_mobile = $lead->alternate_mobile;
-                    $lead_forward->address = $lead->address;
-                    $lead_forward->lead_status = "Active";
-                    $lead_forward->read_status = false;
-                    $lead_forward->done_title = null;
-                    $lead_forward->done_message = null;
-                    $lead_forward->event_datetime = $lead->event_datetime;
-                    $lead_forward->save();
-                }
-            }
-            $leadEventsData = Event::where('lead_id', $rm_lead_id)->get();
-            foreach ($leadEventsData as $leadEventData) {
+    {
+        $rm_lead_id = $request->lead_id;
+        $forward_rms_id = $request->forward_rms_id;
+        $auth_user = Auth::guard('admin')->user();
+        $leadData = Lead::where('lead_id', $rm_lead_id)->first();
+        if (!$leadData) {
+            return response()->json(['success' => false, 'message' => 'Lead data not found.'], 404);
+        }
+        $exist_lead = nvLead::where('mobile', $leadData->mobile)->first();
+        if ($exist_lead) {
+            $lead_link = route('admin.nvlead.view', $exist_lead->id);
+            return response()->json(['success' => true, 'alert_type' => 'info', 'message' => "Lead is already exist with this mobile number. Click on the link below to view the lead.", 'link' => $lead_link], 200);
+        } else {
+            $lead = new nvLead();
+            $lead->created_by = $auth_user->id;
+            $lead->lead_datetime = now();
+            $lead->name = $leadData->name;
+            $lead->email = $leadData->email;
+            $lead->mobile = $leadData->mobile;
+            $lead->alternate_mobile = $leadData->alternate_mobile;
+            $lead->event_datetime = $leadData->event_datetime;
+            if ($lead->save()) {
+                    $exist_lead_forward = nvrmLeadForward::where(['lead_id' => $lead->id, 'forward_to' => $forward_rms_id])->first();
+                    if (!$exist_lead_forward) {
+                        $lead_forward = new nvrmLeadForward();
+                        $lead_forward->lead_id = $lead->id;
+                        $lead_forward->forward_to = $forward_rms_id;
+                        $lead_forward->lead_datetime = $this->current_timestamp;
+                        $lead_forward->name = $lead->name;
+                        $lead_forward->email = $lead->email;
+                        $lead_forward->mobile = $lead->mobile;
+                        $lead_forward->alternate_mobile = $lead->alternate_mobile;
+                        $lead_forward->address = $lead->address;
+                        $lead_forward->lead_status = "Active";
+                        $lead_forward->read_status = false;
+                        $lead_forward->done_title = null;
+                        $lead_forward->done_message = null;
+                        $lead_forward->event_datetime = $lead->event_datetime;
+                        $lead_forward->save();
+                    }
+                $leadEventsData = Event::where('lead_id', $rm_lead_id)->get();
+                foreach ($leadEventsData as $leadEventData) {
                     $event = new NvEvent();
                     $event->created_by = $auth_user->id;
                     $event->lead_id = $lead->id;
@@ -345,13 +344,13 @@ class LeadController extends Controller
                     $event->pax = $leadEventData->pax;
                     $event->event_slot = $leadEventData->event_slot;
                     $event->save();
+                }
+                return response()->json(['success' => true, 'message' => 'Lead added and forwarded successfully.'], 200);
+            } else {
+                return response()->json(['success' => false, 'message' => 'Failed to save the lead.'], 500);
             }
-            return response()->json(['success' => true, 'message' => 'Lead added and forwarded successfully.'], 200);
-        } else {
-            return response()->json(['success' => false, 'message' => 'Failed to save the lead.'], 500);
         }
     }
-}
 
 
     public function get_forward_info($lead_id = 0)

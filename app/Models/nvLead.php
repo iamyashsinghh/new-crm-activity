@@ -21,8 +21,16 @@ class nvLead extends Model {
                 return "This model has been {$eventName} by User ID: {$userId}";
             });
     }
+  
     public function get_nvrm_messages() {
         return $this->hasMany(nvrmMessage::class, 'lead_id', 'id');
+    }
+    public function get_nvrm_help_messages() {
+        return nvNote::where('lead_id', $this->id)
+            ->join('vendors', 'vendors.id', '=', 'nv_notes.created_by')
+            ->join('vendor_categories', 'vendor_categories.id', '=', 'vendors.category_id')
+            ->select('nv_notes.*', 'vendors.name as created_by_name', 'vendor_categories.name as category_name')
+            ->get();
     }
     public function get_events(){
         return $this->hasMany(nvEvent::class, 'lead_id', 'id');
@@ -30,4 +38,9 @@ class nvLead extends Model {
     public function get_tasks() {
         return $this->hasMany(nvrmTask::class, 'lead_id', 'id');
     }
+    public function get_tasks_vendor() {
+        return $this->hasMany(nvTask::class, 'lead_id', 'id');
+    }
+    
+
 }

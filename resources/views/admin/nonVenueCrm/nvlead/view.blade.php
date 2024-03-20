@@ -148,7 +148,7 @@
                     </div>
                     <div class="card mb-5">
                         <div class="card-header text-light" style="background-color: var(--wb-renosand);">
-                            <h3 class="card-title">Task Details</h3>
+                            <h3 class="card-title">NVRM Task Details</h3>
                         </div>
                         <div class="card-body">
                             <div class="table-responsive">
@@ -216,8 +216,8 @@
                                                     <td class="">
                                                         {{ $list->done_datetime ? date('d-M-Y h:i a', strtotime($list->done_datetime)) : 'N/A' }}
                                                     </td>
-                                                    <td class="">{{ $list->get_created_by->name ?? '' }} -
-                                                        {{ $list->get_created_by->get_role->name ?? '' }}</td>
+                                                    <td class="">{{ $list->creator->name?? '' }} -
+                                                        {{ $list->creator->get_role->name ?? '' }}</td>
                                                     <td class="">
                                                         {{ date('d-m-Y h:i a', strtotime($list->created_at)) }}</td>
                                                 </tr>
@@ -227,6 +227,134 @@
                                                 <td class="text-center text-muted" colspan="10">No data available in
                                                     table</td>
                                             </tr>
+                                        @endif
+                                    </body>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card mb-5">
+                        <div class="card-header text-light" style="background-color: var(--wb-renosand);">
+                            <h3 class="card-title">Vendors Tasks Details</h3>
+                        </div>
+                        <div class="card-body">
+                            <div class="table-responsive">
+                                <table id="serverTable" class="table mb-0">
+                                    <thead>
+                                        <tr>
+                                            <th class="text-nowrap">S.No.</th>
+                                            <th class="text-nowrap">Task Schedule Date</th>
+                                            <th class="text-nowrap">Follow Up</th>
+                                            <th class="">Message</th>
+                                            <th class="">Status</th>
+                                            <th class="">Done With</th>
+                                            <th class="">Done Message</th>
+                                            <th class="text-nowrap">Done Date</th>
+                                            <th class="text-nowrap">Created By</th>
+                                            <th class="text-nowrap">Created At</th>
+                                        </tr>
+                                    </thead>
+
+                                    <body>
+                                        @if (sizeof($lead->get_tasks_vendor) > 0)
+                                            @foreach ($lead->get_tasks_vendor as $key => $list)
+                                                <tr>
+                                                    <td>{{ $key + 1 }}</td>
+                                                    <td class="text-nowrap">
+                                                        {{ date('d-M-Y h:i a', strtotime($list->task_schedule_datetime)) }}
+                                                    </td>
+                                                    <td>{{ $list->follow_up }}</td>
+                                                    <td>
+                                                        <button class="btn"
+                                                            onclick="handle_view_message(`{{ $list->message ?: 'N/A' }}`)"><i
+                                                                class="fa fa-comment-dots"
+                                                                style="color: var(--wb-renosand);"></i></button>
+                                                    </td>
+                                                    <td>
+                                                        @php
+                                                            $schedule_date = date(
+                                                                'Y-m-d',
+                                                                strtotime($list->task_schedule_datetime),
+                                                            );
+                                                            if ($list->done_datetime !== null) {
+                                                                $elem_class = 'success';
+                                                                $elem_text = 'Updated';
+                                                            } elseif ($schedule_date > $current_date) {
+                                                                $elem_class = 'info';
+                                                                $elem_text = 'Upcoming';
+                                                            } elseif ($schedule_date == $current_date) {
+                                                                $elem_class = 'warning';
+                                                                $elem_text = 'Today';
+                                                            } elseif ($schedule_date < $current_date) {
+                                                                $elem_class = 'danger';
+                                                                $elem_text = 'Overdue';
+                                                            }
+                                                        @endphp
+                                                        <span
+                                                            class="badge badge-{{ $elem_class }}">{{ $elem_text }}</span>
+                                                    </td>
+                                                    <td>{{ $list->done_with ?: 'N/A' }}</td>
+                                                    <td>
+                                                        <button class="btn"
+                                                            onclick="handle_view_message(`{{ $list->done_message ?: 'N/A' }}`)"><i
+                                                                class="fa fa-comment-dots"
+                                                                style="color: var(--wb-renosand);"></i></button>
+                                                    </td>
+                                                    <td class="">
+                                                        {{ $list->done_datetime ? date('d-M-Y h:i a', strtotime($list->done_datetime)) : 'N/A' }}
+                                                    </td>
+                                                    <td class="">{{ $list->creator->name ?? '' }} -
+                                                        {{ $list->creator->get_category->name ?? '' }}</td>
+                                                    <td class="">
+                                                        {{ date('d-m-Y h:i a', strtotime($list->created_at)) }}</td>
+                                                </tr>
+                                            @endforeach
+                                        @else
+                                            <tr>
+                                                <td class="text-center text-muted" colspan="10">No data available in
+                                                    table</td>
+                                            </tr>
+                                        @endif
+                                    </body>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card mb-5">
+                        <div class="card-header text-light" style="background-color: var(--wb-renosand);">
+                            <h3 class="card-title">Vendor Help Section</h3>
+                        </div>
+                        <div class="card-body">
+                            <div class="table-responsive">
+                                <table id="serverTable" class="table mb-0">
+                                    <thead>
+                                        <tr>
+                                            <th class="text-nowrap">S.No.</th>
+                                            <th class="">Message</th>
+                                            <th class="">Created At</th>
+                                            <th class="">Created By</th>
+                                        </tr>
+                                    </thead>
+                                    <body>
+                                        @php
+                                        $helpmsg = $lead->get_nvrm_help_messages();
+                                        @endphp
+                                        @if (sizeof($helpmsg) > 0)
+                                        @foreach ($helpmsg as $key => $list)
+                                        <tr style="{{ $list->is_solved === 0 ? 'background-color: #00992385;' : '' }}">
+                                            <td>{{$key+1}}</td>
+                                            <td>
+                                                <button class="btn" onclick="handle_view_message(`{{$list->message ?: 'N/A'}}`)"><i class="fa fa-comment-dots" style="color: var(--wb-renosand);"></i></button>
+                                            </td>
+                                            <td class="text-nowrap">{{date('d-M-Y h:i a', strtotime($list->created_at))}}</td>
+                                            <td class="text-nowrap">{{$list->created_by_name}} -- {{$list->category_name}}</td>
+                                            
+                                        </tr>
+                                        @endforeach
+                                        @else
+                                        <tr>
+                                            <td class="text-center text-muted" colspan="5">No data available in table</td>
+                                        </tr>
                                         @endif
                                     </body>
                                 </table>

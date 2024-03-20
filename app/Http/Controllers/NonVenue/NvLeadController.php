@@ -7,9 +7,12 @@ use App\Mail\NotifyVendorLead;
 use App\Models\nvEvent;
 use App\Models\nvLead;
 use App\Models\nvLeadForward;
+use App\Models\nvrmMessage;
+use App\Models\TeamMember;
 use App\Models\nvLeadForwardInfo;
 use App\Models\nvrmLeadForward;
 use App\Models\Vendor;
+use App\Models\nvNote;
 use App\Models\WhatsappCampain;
 use App\Models\VendorCategory;
 use Carbon\Carbon;
@@ -57,9 +60,11 @@ class NvLeadController extends Controller
             $filter_params = ['dashboard_filters' => $dashboard_filters];
             $page_heading = ucwords(str_replace("_", " ", $dashboard_filters));
         }
+        $getRm = TeamMember::select('id', 'name')->where('venue_name', 'RM >< Non Venue')->where('status', 1)->get();
+
         $auth_user = Auth::guard('nonvenue')->user();
-        $whatsapp_campaigns = WhatsappCampain::select('id','name')->where('status', 1)->where('assign_to' ,$auth_user->id)->get();
-        return view('nonvenue.lead.list', compact('page_heading', 'filter_params', 'whatsapp_campaigns'));
+        $whatsapp_campaigns = WhatsappCampain::select('id', 'name')->where('status', 1)->where('assign_to', $auth_user->id)->get();
+        return view('nonvenue.lead.list', compact('page_heading', 'filter_params', 'whatsapp_campaigns', 'getRm'));
     }
     public function ajax_list(Request $request)
     {
@@ -73,16 +78,22 @@ class NvLeadController extends Controller
             'nvrm_lead_forwards.lead_status',
             'nvrm_lead_forwards.event_datetime as event_date',
             'nvrm_lead_forwards.read_status',
+            'nvrm_lead_forwards.last_forwarded_by',
+            'nvrm_lead_forwards.service_status',
+            'nvrm_lead_forwards.whatsapp_msg_time',
             'nvrm_lead_forwards.is_whatsapp_msg',
+            'tm.name as team_name',
+            'roles.name as team_role',
+            'nv_leads.created_by',
             DB::raw("count(fwd_info.id) as forwarded_count"),
-        )->leftJoin('nv_lead_forward_infos as fwd_info', ['nvrm_lead_forwards.lead_id' => 'fwd_info.lead_id']);
+            'forward_to_tm.name as forward_to_name'
+        )->leftJoin('nv_leads', 'nv_leads.id', 'nvrm_lead_forwards.lead_id')
+            ->leftJoin('team_members as tm', 'nv_leads.created_by', 'tm.id')
+            ->leftJoin('roles', 'tm.role_id', 'roles.id')
+            ->leftJoin('team_members as forward_to_tm', 'nvrm_lead_forwards.forward_to', 'forward_to_tm.id') // Add this line to join the team_members table again for forward_to
+            ->leftJoin('nv_lead_forward_infos as fwd_info', ['nvrm_lead_forwards.lead_id' => 'fwd_info.lead_id']);
 
-        if ($request->lead_status != null) {
-            $leads->where('nvrm_lead_forwards.lead_status', $request->lead_status);
-        }
-        if ($request->lead_read_status != null) {
-            $leads->where('nvrm_lead_forwards.read_status', '=', $request->lead_read_status);
-        }
+
         if ($request->event_from_date != null) {
             $from = Carbon::make($request->event_from_date);
             if ($request->event_to_date != null) {
@@ -90,7 +101,7 @@ class NvLeadController extends Controller
             } else {
                 $to = Carbon::make($request->event_from_date)->endOfDay();
             }
-            $leads->whereBetween('nvrm_lead_forwards.event_datetime', [$from, $to]);
+            $leads->whereBetween('nv_leads.event_datetime', [$from, $to])->orderBy('nv_leads.event_datetime', 'asc');
         }
         if ($request->lead_from_date != null) {
             $from = Carbon::make($request->lead_from_date);
@@ -99,7 +110,30 @@ class NvLeadController extends Controller
             } else {
                 $to = Carbon::make($request->lead_from_date)->endOfDay();
             }
-            $leads->whereBetween('nvrm_lead_forwards.lead_datetime', [$from, $to]);
+            $leads->whereBetween('nv_leads.lead_datetime', [$from, $to])->orderBy('nv_leads.lead_datetime', 'asc');
+        }
+        if ($request->has_rm_message != null) {
+            if ($request->has_rm_message == "yes") {
+                $leads->join('nvrm_messages as nvrm_msg', 'nv_leads.id', '=', 'nvrm_msg.lead_id');
+            } else {
+                $leads->leftJoin('nvrm_messages as nvrm_msg', 'nv_leads.id', '=', 'nvrm_msg.lead_id')->where('nvrm_msg.title', null);
+            }
+        }
+        if ($request->has('lead_status') && $request->lead_status != '') {
+            $leads->where('nvrm_lead_forwards.lead_status', $request->lead_status);
+        }
+        if ($request->lead_read_status != null) {
+            $leads->where('nvrm_lead_forwards.read_status', $request->lead_read_status);
+        }
+        if ($request->service_status != null) {
+            if ($request->service_status == 0) {
+                $leads->where(function ($query) use ($request) {
+                    $query->where('nvrm_lead_forwards.service_status', $request->service_status)
+                        ->orWhereNull('nvrm_lead_forwards.service_status');
+                });
+            } else {
+                $leads->where('nvrm_lead_forwards.service_status', $request->service_status);
+            }
         }
         if ($request->lead_done_from_date != null) {
             $from = Carbon::make($request->lead_done_from_date);
@@ -110,46 +144,62 @@ class NvLeadController extends Controller
             }
             $leads->where('nvrm_lead_forwards.lead_status', 'Done')->whereBetween('nvrm_lead_forwards.updated_at', [$from, $to]);
         }
-        if ($request->has_rm_message != null) {
-            if ($request->has_rm_message == "yes") {
-                $leads->join('nvrm_messages as rm_msg', 'nvrm_lead_forwards.lead_id', '=', 'rm_msg.lead_id');
-            } else {
-                $leads->leftJoin('nvrm_messages as rm_msg', 'nvrm_lead_forwards.lead_id', '=', 'rm_msg.lead_id')->where('rm_msg.title', null);
-            }
+        if ($request->team_members != null) {
+            $leads->where('nvrm_lead_forwards.forward_to', $request->team_members);
         }
         if ($request->dashboard_filters != null) {
+            $current_month = date('Y-m');
+            $current_date = date('Y-m-d');
+            $currentDateTime = Carbon::today();
             if ($request->dashboard_filters == "leads_received_this_month") {
-                $from = Carbon::today()->startOfMonth();
-                $to = Carbon::today()->endOfMonth();
-                $leads->whereBetween('nvrm_lead_forwards.lead_datetime', [$from, $to]);
+                $leads->where('nvrm_lead_forwards.lead_datetime', 'like', "%$current_month%")->whereNull('nvrm_lead_forwards.deleted_at')->where('nvrm_lead_forwards.forward_to', $auth_user->id);
             } elseif ($request->dashboard_filters == "leads_received_today") {
-                $from = Carbon::today()->startOfDay();
-                $to = Carbon::today()->endOfDay();
-                $leads->whereBetween('nvrm_lead_forwards.lead_datetime', [$from, $to]);
-            } elseif ($request->dashboard_filters == "unread_leads_this_month") {
-                $from = Carbon::today()->startOfMonth();
-                $to = Carbon::today()->endOfMonth();
-                $leads->whereBetween('nvrm_lead_forwards.lead_datetime', [$from, $to])->where('nvrm_lead_forwards.read_status', false);
-            } elseif ($request->dashboard_filters == "unread_leads_today") {
-                $from = Carbon::today()->startOfDay();
-                $to = Carbon::today()->endOfDay();
-                $leads->whereBetween('nvrm_lead_forwards.lead_datetime', [$from, $to])->where('nvrm_lead_forwards.read_status', false);
-            } elseif ($request->dashboard_filters == "total_unread_leads_overdue") {
+                $leads->where('nvrm_lead_forwards.lead_datetime', 'like', "%$current_date%")->whereNull('nvrm_lead_forwards.deleted_at')->where('nvrm_lead_forwards.forward_to', $auth_user->id);
+            } elseif ($request->dashboard_filters == "nvrm_unfollowed_leads") {
+                $leads->join('nvrm_tasks', 'nvrm_lead_forwards.lead_id', '=', 'nvrm_tasks.lead_id')
+                    ->where('nvrm_lead_forwards.lead_status', '!=', 'Done')
+                    ->where('nvrm_tasks.task_schedule_datetime', '<', $currentDateTime)
+                    ->whereNotNull('nvrm_tasks.done_datetime')
+                    ->whereNull('nvrm_lead_forwards.deleted_at')
+                    ->whereNull('nvrm_tasks.deleted_at')
+                    ->distinct('nvrm_lead_forwards.lead_id')
+                    ->where('nvrm_tasks.created_by', $auth_user->id);
+            }elseif($request->dashboard_filters == "unread_leads_this_month"){
+                $leads->where('nvrm_lead_forwards.lead_datetime', 'like', "%$current_month%")->whereNull('nvrm_lead_forwards.deleted_at')->where(['nvrm_lead_forwards.read_status' => false])->where('nvrm_lead_forwards.forward_to', $auth_user->id);
+            }elseif($request->dashboard_filters == "unread_leads_today"){
+                $leads->where('nvrm_lead_forwards.lead_datetime', 'like', "%$current_date%")->where(['nvrm_lead_forwards.read_status' => false])->whereNull('nvrm_lead_forwards.deleted_at')->where('nvrm_lead_forwards.forward_to', $auth_user->id);
+            }elseif($request->dashboard_filters == "total_unread_leads_overdue"){
                 $leads->where('nvrm_lead_forwards.lead_datetime', '>=', Carbon::parse('2024-02-01')->startOfDay())
-                    ->where('nvrm_lead_forwards.lead_datetime', '<=', Carbon::now())
-                    ->where('nvrm_lead_forwards.read_status', false);
-            } elseif ($request->dashboard_filters == "forward_leads_this_month") {
-                $from = Carbon::today()->startOfMonth();
-                $to = Carbon::today()->endOfMonth();
-                $leads->whereBetween('fwd_info.updated_at', [$from, $to]);
-            } elseif ($request->dashboard_filters == "forward_leads_today") {
-                $from = Carbon::today()->startOfDay();
-                $to = Carbon::today()->endOfDay();
-                $leads->whereBetween('fwd_info.updated_at', [$from, $to]);
+                ->where('nvrm_lead_forwards.lead_datetime', '<=', Carbon::now())
+                ->where('nvrm_lead_forwards.read_status', false)
+                ->whereNull('nvrm_lead_forwards.deleted_at')
+                ->where('nvrm_lead_forwards.forward_to', $auth_user->id)
+                ->distinct('nvrm_lead_forwards.lead_id');
+            }elseif($request->dashboard_filters == "forward_leads_this_month"){
+                $leads->join('nv_lead_forward_infos', 'nvrm_lead_forwards.lead_id', '=', 'nv_lead_forward_infos.lead_id')
+                ->where('nv_lead_forward_infos.updated_at', 'like', "%$current_month%")
+                ->where('nv_lead_forward_infos.forward_from', $auth_user->id);
+            }elseif($request->dashboard_filters == "forward_leads_today"){
+                $leads->join('nv_lead_forward_infos', 'nvrm_lead_forwards.lead_id', '=', 'nv_lead_forward_infos.lead_id')
+                ->where('nv_lead_forward_infos.updated_at', 'like', "%$current_date%")
+                ->where('nv_lead_forward_infos.forward_from', $auth_user->id);
             }
         }
 
         $leads = $leads->groupBy('nvrm_lead_forwards.lead_id')->get();
+        $unresolvedNotesQuery = DB::table('nv_notes')
+            ->select('lead_id', 'vendors.name as vendor_name', DB::raw('COUNT(nv_notes.id) as unresolved_count'))
+            ->join('vendors', 'nv_notes.created_by', '=', 'vendors.id')
+            ->where('nv_notes.is_solved', 0)
+            ->groupBy('nv_notes.lead_id', 'vendors.name');
+        $unresolvedNotes = $unresolvedNotesQuery->get()->groupBy('lead_id');
+        foreach ($leads as $lead) {
+            $notesForLead = collect($unresolvedNotes->get($lead->lead_id, []));
+            $formattedNotes = $notesForLead->map(function ($item) {
+                return "{$item->vendor_name} -- {$item->unresolved_count}";
+            })->implode(', ');
+            $lead->unresolved_notes = $formattedNotes;
+        }
         return datatables($leads)->toJson();
     }
 
@@ -245,14 +295,21 @@ class NvLeadController extends Controller
 
     public function view($lead_id)
     {
-        // $auth_user = Auth::guard('nonvenue')->user();
         $service_categories = VendorCategory::select('id', 'name')->get();
-        // $lead = nvrmLeadForward::where(['forward_to' => $auth_user->id, 'lead_id' => $lead_id])->first();
         $lead = nvrmLeadForward::where(['lead_id' => $lead_id])->first();
         if (!$lead) {
             abort(404);
         }
         return view('nonvenue.lead.view', compact('lead', 'service_categories'));
+    }
+
+    public function service_status_update($lead_id, $status)
+    {
+        $lead = nvrmLeadForward::where('id', $lead_id)->first();
+        $lead->service_status = $status;
+        $lead->save();
+        session()->flash('status', ['success' => true, 'alert_type' => 'success', 'message' => "Service status updated."]);
+        return redirect()->back();
     }
 
     public function get_forward_info($lead_id = 0)
@@ -266,7 +323,7 @@ class NvLeadController extends Controller
                 'vc.name as category_name',
             )->Join('vendors as v', 'fwd_info.forward_to', 'v.id')
                 ->join('vendor_categories as vc', 'v.category_id', 'vc.id')
-                ->where(['fwd_info.forward_from' => $auth_user->id, 'fwd_info.lead_id' => $lead_id])->orderBy('fwd_info.updated_at', 'desc')->get();
+                ->where(['fwd_info.lead_id' => $lead_id])->orderBy('fwd_info.updated_at', 'desc')->get();
             return response()->json(['success' => true, 'lead_forwards' => $lead_forwards]);
         } catch (\Throwable $th) {
             return response()->json(['success' => false, 'alert_type' => 'error', 'message' => 'Something went wrong.']);
@@ -276,17 +333,19 @@ class NvLeadController extends Controller
     public function status_update(Request $request, $forward_id, $status = "Done")
     {
         $auth_user = Auth::guard('nonvenue')->user();
-        $lead_forward = nvrmLeadForward::where(['id' => $forward_id, 'forward_to' => $auth_user->id])->first();
-
+        $lead_forward = nvrmLeadForward::where('id', $forward_id)->first();
+        $admin_nvrm_lead_id = $lead_forward->lead_id;
         if (!$lead_forward) {
             session()->flash('status', ['success' => false, 'alert_type' => 'error', 'message' => "Something went wrong."]);
             return redirect()->back();
         }
+        $admin_nvrm_lead = nvLead::where(['id' => $admin_nvrm_lead_id])->first();
 
         if ($status == "Active") {
             $lead_forward->lead_datetime = $this->current_timestamp;
             $lead_forward->lead_status = "Active";
             $lead_forward->read_status = false;
+            $lead_forward->service_status = false;
             $lead_forward->done_title = null;
             $lead_forward->done_message = null;
         } else {
@@ -294,7 +353,6 @@ class NvLeadController extends Controller
                 'forward_id' => 'required|exists:nvrm_lead_forwards,id',
                 'done_title' => 'required|string',
             ]);
-
             if ($validate->fails()) {
                 session()->flash('status', ['success' => false, 'alert_type' => 'error', 'message' => $validate->errors()->first()]);
                 return redirect()->back();
@@ -306,8 +364,10 @@ class NvLeadController extends Controller
             $lead_forward->done_message = $request->done_message;
         }
 
-        $lead_forward->save();
-
+        if ($lead_forward->save()) {
+            $admin_nvrm_lead->created_by = $auth_user->id;
+            $admin_nvrm_lead->save();
+        }
         session()->flash('status', ['success' => true, 'alert_type' => 'success', 'message' => "Lead status updated."]);
         return redirect()->back();
     }
@@ -338,7 +398,6 @@ class NvLeadController extends Controller
             } else {
                 $lead_forward = new nvLeadForward();
                 $lead_forward->lead_id = $forward->lead_id;
-                // $lead_forward->forward_from = $auth_user->id;
                 $lead_forward->forward_to = $vendor_id;
             }
             $lead_forward->lead_datetime = $this->current_timestamp;
@@ -369,16 +428,7 @@ class NvLeadController extends Controller
 
             $message = substr($forward->mobile, 0, -2) . "XX";
             $lead_id = $forward->lead_id;
-            // if ($vendor->category_id == 4) {
-            //     $number = $message;
-            //     $event = nvEvent::where(['lead_id' => $forward->lead_id])->orderBy('id', 'desc')->first();
-            //     $eventdate = $event->event_datetime;
-            //     $pax = $event->pax;
-            //     $this->notify_wbvendor_lead_using_interakt($vendor->mobile, $vendor->business_name, $number, $eventdate, $pax, $lead_id);
-            // } else {
-            //     $this->notify_vendor_lead_using_interakt($vendor->mobile, $vendor->business_name, $message, $lead_id);
-            // }
-                   $this->notify_vendor_lead_using_interakt($vendor->mobile, $vendor->business_name, $message, $lead_id);
+            $this->notify_vendor_lead_using_interakt($vendor->mobile, $vendor->business_name, $message, $lead_id);
 
             if ($vendor->email != null) {
                 $event = nvEvent::where(['lead_id' => $forward->lead_id, 'created_by' => $auth_user->id])->orderBy('id', 'desc')->first();
@@ -396,7 +446,14 @@ class NvLeadController extends Controller
             }
         }
         $forward->read_status = true;
+        $forward->last_forwarded_by = $auth_user->name;
         $forward->save();
+
+        $affectedRows = nvNote::where('lead_id', $forward->lead_id)
+            ->where('is_solved', '0')
+            ->where('created_at', '<', $request->nvrm_msg_date)
+            ->whereIn('created_by', $request->forward_vendors_id)
+            ->update(['is_solved' => null]);
 
         session()->flash('status', ['success' => true, 'alert_type' => 'success', 'message' => 'Lead forwarded successfully.']);
         return redirect()->back();
@@ -404,11 +461,8 @@ class NvLeadController extends Controller
 
     public function get_vendor_by_category($category_id)
     {
-        // $default_vendors = Vendor::select('id', 'name', 'business_name')->where(['category_id' => $category_id, 'status' => 1])->whereIn('id', [58, 80])->get();
-        // $vendors = Vendor::select('id', 'name', 'business_name')->where(['category_id' => $category_id, 'status' => 1])->whereNotIn('id', [58, 80])->get();
         $vendors = Vendor::select('id', 'name', 'business_name', 'group_name')->where(['category_id' => $category_id, 'status' => 1])->orderBy('group_name')->get();
         if ($vendors && sizeof($vendors) > 0) {
-            // return response()->json(['success' => true, 'vendors' => $vendors, 'default_vendors' => $default_vendors]);
             return response()->json(['success' => true, 'vendors' => $vendors]);
         } else {
             return response()->json(['success' => false, 'alert_type' => 'error', 'message' => "Vendor's not found."]);

@@ -12,6 +12,7 @@ use Spatie\Activitylog\LogOptions;
 use App\Traits\HasAuthenticatedUser;
 class nvrmLeadForward extends Model {
     use HasFactory, HasAuthenticatedUser, SoftDeletes,LogsActivity;
+
     public function getActivitylogOptions(): LogOptions
     {
         $userId = $this->getAuthenticatedUserId();
@@ -28,6 +29,13 @@ class nvrmLeadForward extends Model {
 
     public function get_events(){
         return $this->hasMany(nvEvent::class, 'lead_id', 'lead_id');
+    }
+    public function get_nvrm_help_messages() {
+        return nvNote::where('lead_id', $this->lead_id)
+            ->join('vendors', 'vendors.id', '=', 'nv_notes.created_by')
+            ->join('vendor_categories', 'vendor_categories.id', '=', 'vendors.category_id')
+            ->select('nv_notes.*', 'vendors.name as created_by_name', 'vendor_categories.name as category_name')
+            ->get();
     }
     public function get_nvrm_tasks() {
         $auth_user = Auth::guard('nonvenue')->user();

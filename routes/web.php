@@ -282,6 +282,7 @@ Route::middleware('verify_token')->group(function () {
             Route::post('/leads/edit-process/{lead_id}', [Controllers\NonVenue\NvLeadController::class, 'edit_process'])->name('nonvenue.lead.edit.process');
             Route::get('/leads/view/{lead_id?}', [Controllers\NonVenue\NvLeadController::class, 'view'])->name('nonvenue.lead.view');
             Route::post('/leads/forward', [Controllers\NonVenue\NvLeadController::class, 'lead_forward'])->name('nonvenue.lead.forward');
+            Route::get('/leads/service-status-update/{forward_id}/{status?}', [Controllers\NonVenue\NvLeadController::class, 'service_status_update'])->name('nonvenue.lead.serviceStatus.update');
             Route::get('/leads/get-forward-info/{lead_id?}', [Controllers\NonVenue\NvLeadController::class, 'get_forward_info'])->name('nonvenue.lead.getForwardInfo');
             Route::post('/leads/status-update/{forward_id}/{status?}', [Controllers\NonVenue\NvLeadController::class, 'status_update'])->name('nonvenue.lead.status.update');
             Route::get('/leads/status-update/{forward_id}/{status?}', [Controllers\NonVenue\NvLeadController::class, 'status_update'])->name('nonvenue.lead.status.update');

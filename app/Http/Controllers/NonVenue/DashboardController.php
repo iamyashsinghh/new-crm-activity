@@ -20,18 +20,19 @@ class DashboardController extends Controller
         $current_month = date('Y-m');
         $current_date = date('Y-m-d');
 
-        $total_leads_received_this_month = nvrmLeadForward::where('lead_datetime', 'like', "%$current_month%")->whereNull('deleted_at')->count();
-        $total_leads_received_today = nvrmLeadForward::where('lead_datetime', 'like', "%$current_date%")->whereNull('deleted_at')->count();
-        $unread_leads_this_month = nvrmLeadForward::where('lead_datetime', 'like', "%$current_month%")->whereNull('deleted_at')->where(['read_status' => false])->count();
-        $unread_leads_today = nvrmLeadForward::where('lead_datetime', 'like', "%$current_date%")->where(['read_status' => false])->whereNull('deleted_at')->count();
+        $total_leads_received_this_month = nvrmLeadForward::where('lead_datetime', 'like', "%$current_month%")->whereNull('deleted_at')->where('forward_to', $auth_user->id)->distinct('lead_id')->count();
+        $total_leads_received_today = nvrmLeadForward::where('lead_datetime', 'like', "%$current_date%")->whereNull('deleted_at')->where('forward_to', $auth_user->id)->distinct('lead_id')->count();
+        $unread_leads_this_month = nvrmLeadForward::where('lead_datetime', 'like', "%$current_month%")->whereNull('deleted_at')->where(['read_status' => false])->where('forward_to', $auth_user->id)->distinct('lead_id')->count();
+        $unread_leads_today = nvrmLeadForward::where('lead_datetime', 'like', "%$current_date%")->where(['read_status' => false])->whereNull('deleted_at')->where('forward_to', $auth_user->id)->distinct('lead_id')->count();
         $total_unread_leads_overdue = nvrmLeadForward::where('lead_datetime', '>=', Carbon::parse('2024-02-01')->startOfDay())
         ->where('lead_datetime', '<=', Carbon::now())
         ->where('read_status', false)
         ->whereNull('deleted_at')
+        ->where('forward_to', $auth_user->id)
         ->distinct('lead_id')
         ->count('lead_id');
-        $forward_leads_this_month = nvLeadForwardInfo::where('updated_at', 'like', "%$current_month%")->where(['forward_from' => $auth_user->id])->groupBy('lead_id')->get()->count();
-        $forward_leads_today = nvLeadForwardInfo::where('updated_at', 'like', "%$current_date%")->where(['forward_from' => $auth_user->id])->groupBy('lead_id')->get()->count();
+        $forward_leads_this_month = nvLeadForwardInfo::join('nvrm_lead_forwards',  'nv_lead_forward_infos.lead_id', '=', 'nvrm_lead_forwards.lead_id')->where('nv_lead_forward_infos.updated_at', 'like', "%$current_month%")->whereNull('nvrm_lead_forwards.deleted_at')->where(['nv_lead_forward_infos.forward_from' => $auth_user->id])->groupBy('nv_lead_forward_infos.lead_id')->get()->count();
+        $forward_leads_today = nvLeadForwardInfo::join('nvrm_lead_forwards',  'nv_lead_forward_infos.lead_id', '=', 'nvrm_lead_forwards.lead_id')->where('nv_lead_forward_infos.updated_at', 'like', "%$current_date%")->whereNull('nvrm_lead_forwards.deleted_at')->where(['nv_lead_forward_infos.forward_from' => $auth_user->id])->groupBy('nv_lead_forward_infos.lead_id')->get()->count();
         // $total_leads_received_this_month = nvrmLeadForward::where('lead_datetime', 'like', "%$current_month%")->where('forward_to', $auth_user->id)->count();
         // $total_leads_received_today = nvrmLeadForward::where('lead_datetime', 'like', "%$current_date%")->where('forward_to', $auth_user->id)->count();
         // $unread_leads_this_month = nvrmLeadForward::where('lead_datetime', 'like', "%$current_month%")->where(['forward_to' => $auth_user->id, 'read_status' => false])->count();

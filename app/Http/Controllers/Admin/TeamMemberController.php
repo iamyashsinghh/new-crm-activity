@@ -47,9 +47,10 @@ class TeamMemberController extends Controller {
             $member = TeamMember::find($id);
         } else {
             $page_heading = "New Member";
-            $member = json_decode(json_encode(['id' => 0, 'role_id' => '', 'name' => '', 'email' => '', 'mobile' => '', 'venue_name' => '', 'status' => '']));
+            $member = json_decode(json_encode(['id' => 0, 'role_id' => '', 'name' => '', 'email' => '', 'mobile' => '', 'venue_name' => '', 'status' => '', 'nvrm_id' => '']));
         }
-        return view('admin.venueCrm.team.manage', compact('page_heading', 'roles', 'managers', 'member'));
+        $getRm = TeamMember::select('id', 'name')->where('venue_name', 'RM >< Non Venue')->get();
+        return view('admin.venueCrm.team.manage', compact('page_heading', 'roles', 'managers', 'member', 'getRm'));
     }
 
     public function manage_process($id = 0, Request $request) {
@@ -108,6 +109,7 @@ class TeamMemberController extends Controller {
         $member->mobile = $request->mobile_number;
         $member->venue_name = $request->venue_name;
         $member->status = $request->status;
+        $member->nvrm_id = $request->nvrm_id;
         $member->save();
 
         session()->flash('status', ['success' => true, 'alert_type' => 'success', 'message' => $msg]);
