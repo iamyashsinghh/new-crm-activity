@@ -93,10 +93,10 @@
                                 @foreach ($getRm as $rm)
                                     <div class="custom-control custom-radio my-1">
                                         <input class="custom-control-input" type="radio"
-                                            id="team_member_{{ $rm->name }}" name="team_members"
+                                            id="filter_team_member_{{ $rm->name }}" name="team_members"
                                             value="{{ $rm->id }}"
                                             {{ isset($filter_params['team_members']) && $filter_params['team_members'] == $rm->id ? 'checked' : '' }}>
-                                        <label for="team_member_{{ $rm->name }}"
+                                        <label for="filter_team_member_{{ $rm->name }}"
                                             class="custom-control-label">{{ $rm->name }}</label>
                                     </div>
                                 @endforeach

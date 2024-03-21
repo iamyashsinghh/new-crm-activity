@@ -17,6 +17,8 @@ use Illuminate\Support\Facades\Response;
 use GuzzleHttp\Client;
 use GuzzleHttp\Promise;
 use Illuminate\Support\Str;
+use App\Models\Vendor;
+
 
 
 
@@ -56,14 +58,11 @@ function get_assining_rm() {
 
 
 Route::post('/save_wa', function (Request $request) {
-    Log::info($request);
     $name = $request['contacts'][0]['profile']['name'];
     $number = $request['messages']['from'];
     $timestamp = $request['messages']['timestamp'];
     $type = $request['messages']['type'];
-    $filename = '';
     $textMsg = '';
-    $documentUrl = '';
     $id = "";
     $current_timestamp = date('Y-m-d H:i:s', $timestamp);
     if (strlen($number) > 10) {
@@ -111,17 +110,39 @@ Route::post('/save_wa', function (Request $request) {
     } else {
         Log::info("error saving whatsapp msg");
     }
+    $newmsg_saved = $newWaMsg->save();
     $getlead = Lead::where('mobile', $number)->first();
     $getlead2 = nvrmLeadForward::where('mobile', $number)->first();
     $getlead3 = nvLead::where('mobile', $number)->first();
+    $getlead4 = Vendor::where('mobile', $number)->first();
+    $getlead5 = Vendor::where('alt_mobile_number', $number)->first();
     if ($getlead) {
         $getlead->is_whatsapp_msg = 1;
         $getlead->whatsapp_msg_time = $current_timestamp;
         $getlead->save();
-    }elseif ($getlead3) {
+    }
+    if ($getlead2) {
+        $getlead2->is_whatsapp_msg = 1;
+        $getlead2->whatsapp_msg_time = $current_timestamp;
+        $getlead2->save();
+    }
+    if ($getlead3) {
         $getlead3->is_whatsapp_msg = 1;
         $getlead3->save();
-    }else{
+    }
+        if ($getlead4) {
+            $getlead4->is_whatsapp_msg = 1;
+            $getlead4->whatsapp_msg_time = $current_timestamp;
+            $getlead4->save();
+        }
+
+        if ($getlead5) {
+            $getlead5->is_whatsapp_msg = 1;
+            $getlead5->whatsapp_msg_time = $current_timestamp;
+            $getlead5->save();
+        }
+
+    if (!$getlead && !$getlead2 && !$getlead3 && !$getlead4 && !$getlead5) {
         $current_timestamp = date('Y-m-d H:i:s');
             $lead = new Lead();
             $lead->name = $name;
@@ -136,14 +157,15 @@ Route::post('/save_wa', function (Request $request) {
             $lead->service_status = false;
             $lead->done_title = null;
             $lead->done_message = null;
-            $lead->lead_color = "#4bff0033"; //green color
+            $lead->lead_color = "#4bff0033";
             $lead->virtual_number = null;
             $lead->is_whatsapp_msg = 1;
             $lead->whatsapp_msg_time = $current_timestamp;
             $lead->assign_to = get_assining_rm();
             $lead->save();
-    }
-    if($newWaMsg->save()){
+        }
+
+    if($newmsg_saved){
         return response()->json([
             'success' => true,
             'message' => 'Message saved successfully',
@@ -154,7 +176,6 @@ Route::post('/save_wa', function (Request $request) {
             'success' => false,
             'message' => 'Failed to save the message',
         ], 500);
-
     }
 });
 

@@ -21,7 +21,7 @@
                 <div class="button-group vendor-categories my-4">
                     @foreach ($vendor_categories as $category)
                         <button class="btn btn-secondary btn-sm filter-btn"
-                            data-category-name="{{ $category->name }}">{{ $category->name }}</button>
+                            data-category-name="{{ $category->id }}">{{ $category->name }}</button>
                     @endforeach
                 </div>
             </div>
@@ -185,11 +185,30 @@
     </div>
 @endsection
 @section('footer-script')
+    @include('whatsapp.chat');
     <script src="//cdn.datatables.net/1.13.1/js/jquery.dataTables.min.js"></script>
     <script src="{{ asset('plugins/moment/moment.min.js') }}"></script>
     <script>
+        function handle_whatsapp_msg(id) {
+            const elementToUpdate = document.querySelector(`#what_id-${id}`);
+            if (elementToUpdate) {
+                elementToUpdate.outerHTML =
+                    `<i class="fab fa-whatsapp" onclick="handle_whatsapp_msg(${id})" style="font-size: 25px; color: green;"></i>`;
+            }
+            const form_title = document.querySelector(`#form_title_modal`);
+            form_title.innerHTML = `Whatsapp Messages of ${id}`;
+            const manageWhatsappChatModal = new bootstrap.Modal(document.getElementById('wa_msg'));
+            wamsg(id);
+            manageWhatsappChatModal.show();
+            const wa_status_url = `{{ route('whatsapp_chat.status_nv_team') }}`;
+            const wa_status_data = {
+                mobile: id
+            };
+        }
+        var vendor_cat_id = 0;
+        var routeTemplate = "{{ route('admin.vendor.list.ajax', ['vendor_cat_id' => 'PLACEHOLDER']) }}";
+        var actualUrl = routeTemplate.replace('PLACEHOLDER', vendor_cat_id);
         $(document).ready(function() {
-
             var table = $('#serverTable').DataTable({
                 pageLength: 10,
                 language: {
@@ -201,7 +220,7 @@
                 serverSide: true,
                 loading: true,
                 ajax: {
-                    url: "{{ route('admin.vendor.list.ajax') }}",
+                    url: actualUrl,
                     headers: {
                         'X-CSRF-TOKEN': "{{ csrf_token() }}",
                     },
@@ -268,18 +287,25 @@
                     },
 
                 ],
-                order: [[10, 'desc']],
-
-
+                order: [
+                    [8, 'desc']
+                ],
                 rowCallback: function(row, data, index) {
                     row.setAttribute('id', data.id);
 
                     const td_elements = row.querySelectorAll('td');
-                    td_elements[0].innerHTML= `${data.id}-${data.group_name}`;
+                    td_elements[0].innerHTML = `${data.id}-${data.group_name}`;
                     td_elements[1].classList.add('py-1');
                     td_elements[1].innerHTML = `<a onclick="handle_view_image('${data.profile_image}', '{{ route('admin.vendor.updateProfileImage') }}/${data.id}')" href="javascript:void(0);">
                     <img class="img-thumbnail" src="${data.profile_image}" style="width: 50px;" onerror="this.onerror=null; this.src='{{ asset('images/default-user.png') }}'">
                 </a>`;
+                    if (data.is_whatsapp_msg === 1) {
+                        td_elements[3].innerHTML =
+                            `<div class="d-flex"><div>${data.mobile} </div> &nbsp;&nbsp;&nbsp;<i class="fa-brands fa-square-whatsapp" onclick="handle_whatsapp_msg(${data.mobile})" id="what_id-${data.mobile}" style="font-size: 25px; color: green;"></i></div>`;
+                    } else {
+                        td_elements[3].innerHTML =
+                            `<div class="d-flex"><div>${data.mobile} </div>&nbsp;&nbsp;&nbsp;<i class="fab fa-whatsapp" onclick="handle_whatsapp_msg(${data.mobile})" style="font-size: 25px; color: green;"></i></div>`;
+                    }
                     td_elements[4].innerHTML = data.group_name;
                     td_elements[4].innerHTML = data.email ? data.email : 'N/A';
                     td_elements[5].innerHTML = data.business_name ? data.business_name : 'N/A';
@@ -305,22 +331,20 @@
                 }
             });
             $('.filter-btn').on('click', function() {
-                var categoryName = $(this).data('category-name');
-                table.search(categoryName).draw();
+                var vendor_cat_id = $(this).data('category-name');
+                var actualUrl = routeTemplate.replace('PLACEHOLDER', vendor_cat_id);
+                table.ajax.url(actualUrl).load();
             });
 
             $('#start_date_inp').on('change', function() {
                 var startDate = $(this).val();
-
                 if (startDate) {
                     var startDateObject = new Date(startDate);
                     startDateObject.setDate(startDateObject.getDate() + 89);
-
                     var endDate = startDateObject.toISOString().split('T')[0];
                     $('#end_date_inp').val(endDate);
                 }
             });
-
         });
 
         function handle_manage_vendor(vendor_id = 0) {
@@ -338,7 +362,7 @@
                         start_date_inp.value = data.vendor.start_date;
                         end_date_inp.value = data.vendor.end_date;
                         group_name_select.value = data.vendor.group_name;
-                        vendor_altmobile_inp.value = data.vendor.vendor_altmobile_inp;
+                        vendor_altmobile_inp.value = data.vendor.alt_mobile_number;
                         category_select.querySelector(`option[value="${data.vendor.category_id}"]`).selected = true;
                         manageVendorModalHeading.innerText = "Edit Vendor";
                         modal.show();

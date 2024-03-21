@@ -54,8 +54,9 @@ class VendorController extends Controller
     //     return datatables($vendors)->toJson();
     // }
 
-    public function ajax_list()
+    public function ajax_list($vendor_cat_id)
     {
+        if($vendor_cat_id == 0){
         $vendors = Vendor::select(
             'vendors.id',
             'vendors.profile_image',
@@ -65,13 +66,32 @@ class VendorController extends Controller
             'vendors.business_name',
             'vc.name as category_name',
             'vendors.status',
+            'vendors.is_whatsapp_msg',
             'vendors.created_at',
             'vendors.group_name',
             DB::raw('(SELECT COUNT(*) FROM nv_lead_forwards WHERE nv_lead_forwards.forward_to = vendors.id AND (nv_lead_forwards.created_at BETWEEN vendors.start_date AND vendors.end_date OR (vendors.start_date IS NULL AND vendors.end_date IS NULL))) as total_leads')
         )->leftJoin("vendor_categories as vc", 'vendors.category_id', '=', 'vc.id')
             ->orderBy('group_name', 'asc')
             ->get();
-
+        }else{
+            $vendors = Vendor::select(
+                'vendors.id',
+                'vendors.profile_image',
+                'vendors.name',
+                'vendors.mobile',
+                'vendors.email',
+                'vendors.business_name',
+                'vc.name as category_name',
+                'vendors.status',
+                'vendors.is_whatsapp_msg',
+                'vendors.created_at',
+                'vendors.group_name',
+                DB::raw('(SELECT COUNT(*) FROM nv_lead_forwards WHERE nv_lead_forwards.forward_to = vendors.id AND (nv_lead_forwards.created_at BETWEEN vendors.start_date AND vendors.end_date OR (vendors.start_date IS NULL AND vendors.end_date IS NULL))) as total_leads')
+            )->leftJoin("vendor_categories as vc", 'vendors.category_id', '=', 'vc.id')
+                ->orderBy('group_name', 'asc')
+                ->where('vendors.category_id', $vendor_cat_id)
+                ->get();
+        }
         return datatables($vendors)->editColumn('total_leads', function ($vendor) {
             return $vendor->total_leads ?: 'No leads found';
         })->toJson();
