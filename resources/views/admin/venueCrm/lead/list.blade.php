@@ -131,10 +131,10 @@
                                     @foreach ($getRm as $rm)
                                         <div class="custom-control custom-radio my-1">
                                             <input class="custom-control-input" type="radio"
-                                                id="team_member_{{ $rm->name }}" name="team_members"
-                                                value="{{ $rm->name }}"
-                                                {{ isset($filter_params['team_members']) && $filter_params['team_members'] == $rm->name ? 'checked' : '' }}>
-                                            <label for="team_member_{{ $rm->name }}"
+                                                id="team_member_{{ $rm->id }}" name="team_members"
+                                                value="{{ $rm->id }}"
+                                                {{ isset($filter_params['team_members']) && $filter_params['team_members'] == $rm->id ? 'checked' : '' }}>
+                                            <label for="team_member_{{ $rm->id }}"
                                                 class="custom-control-label">{{ $rm->name }}</label>
                                         </div>
                                     @endforeach
@@ -489,12 +489,13 @@
                     },
                     {
                         targets: 14,
-                        name: "lead_id",
-                        data: "lead_id",
+                        name: "whatsapp_msg_time",
+                        data: "whatsapp_msg_time",
                         orderable: false,
                         searchable: false,
                     },
                 ],
+                order: [[14, 'desc']],
                 rowCallback: function(row, data, index) {
                     row.style.backgroundColor = data.lead_color;
 

@@ -23,6 +23,10 @@ class nvrmLeadForward extends Model {
                 return "This model has been {$eventName} by User ID: {$userId}";
             });
     }
+    public function nvrm_tasks()
+{
+    return $this->hasMany(nvrmTask::class, 'lead_id', 'lead_id');
+}
     public function get_nvrm_messages() {
         return $this->hasMany(nvrmMessage::class, 'lead_id', 'lead_id');
     }

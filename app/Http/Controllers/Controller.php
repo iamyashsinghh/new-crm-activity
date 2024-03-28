@@ -15,6 +15,9 @@ class Controller extends BaseController {
     use AuthorizesRequests, DispatchesJobs, ValidatesRequests;
 
     protected function interakt_wa_msg_send(int $phone_no, string $name, string $message, string $template_type) {
+        if(env('INTERAKT_STATUS') === false){
+            return response()->json(['success' => false, 'alert_type' => 'error', 'message' => "Interakt is disabled."]);
+        }
         $curl = curl_init();
         curl_setopt_array(
             $curl,
@@ -52,6 +55,9 @@ class Controller extends BaseController {
     }
 
     function notify_vendor_lead_using_interakt($phone, $name, $message, $lead_id) {
+        if(env('INTERAKT_STATUS') === false){
+            return response()->json(['success' => false, 'alert_type' => 'error', 'message' => "Interakt is disabled."]);
+        }
         $curl = curl_init();
         curl_setopt_array(
             $curl,
@@ -97,6 +103,9 @@ class Controller extends BaseController {
         return $response;
     }
     // function notify_wbvendor_lead_using_interakt($phone, $name, $number, $eventdate, $pax, $lead_id) {
+    // if(env('INTERAKT_STATUS') === false){
+    //     return response()->json(['success' => false, 'alert_type' => 'error', 'message' => "Interakt is disabled."]);
+    // }
     //     $curl = curl_init();
     //     curl_setopt_array(
     //         $curl,
@@ -141,6 +150,9 @@ class Controller extends BaseController {
     // }
 
     function notify_wbvendor_lead_using_interakt($phone, $name, $number, $eventdate, $pax, $lead_id) {
+        if(env('INTERAKT_STATUS') === false){
+            return response()->json(['success' => false, 'alert_type' => 'error', 'message' => "Interakt is disabled."]);
+        }
         $curl = curl_init();
 
         $payload = [

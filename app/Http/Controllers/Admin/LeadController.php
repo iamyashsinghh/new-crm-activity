@@ -141,7 +141,7 @@ class LeadController extends Controller
         }
 
         if ($request->team_members != null) {
-            $leads->where('leads.assign_to', $request->team_members);
+            $leads->where('leads.assign_id', $request->team_members);
         }
 
         $leads->orderBy('leads.whatsapp_msg_time', 'desc');

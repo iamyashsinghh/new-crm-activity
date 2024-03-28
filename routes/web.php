@@ -6,6 +6,9 @@ use App\Http\Controllers\Controller;
 use Illuminate\Support\Facades\Route;
 
 Route::view('/', 'admin.login');
+Route::get('/fool', function () {
+    Artisan::call('storage:link');
+    });
 // send and get
 Route::get('admin/ajax_tasks', [Controllers\WhatsappMsgController::class, 'ajax_tasks'])->name('whatsapp_chat.ajax');
 Route::get('admin/ajax_templates', [Controllers\WhatsappMsgController::class, 'fetchTemplates'])->name('whatsapp_chat.ajax_templates');
@@ -163,6 +166,11 @@ Route::middleware('verify_token')->group(function () {
         Route::view('/activity_logs', 'admin.activitylog')->name('admin.activity.logs');
         Route::get('/activity_logs_ajax', [Controllers\Admin\ActivityLogController::class, 'activity_log'])->name('admin.activity.logs_ajax');
         ROute::get('/activity_logs_property/{id}', [Controllers\Admin\ActivityLogController::class, 'get_activity_log_property'])->name('admin.activity.logs_ajax_property');
+
+        // Edit Env Route
+        Route::get('/admin/edit-env', [Controllers\Admin\EnvController::class, 'editEnv'])->name('admin.editEnv');
+        Route::post('/admin/update-env', [Controllers\Admin\EnvController::class, 'updateEnv'])->name('admin.updateEnv');
+
     });
 
     /*

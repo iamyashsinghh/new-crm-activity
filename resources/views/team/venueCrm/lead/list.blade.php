@@ -25,8 +25,8 @@
                     <a href="{{ route('team.lead.list') }}" class="btn btn-secondary btn-sm">Refresh</a>
                     @if ($auth_user->role_id == 4)
                         <div>
-                            <button class="btn btn-sm text-light" onclick="fetch_from_interakt(this)"
-                                style="background-color: var(--wb-renosand);">Fetch from Interakt</button>
+                            {{-- <button class="btn btn-sm text-light" onclick="fetch_from_interakt(this)"
+                                style="background-color: var(--wb-renosand);">Fetch from Interakt</button> --}}
                             <button class="btn btn-sm text-light" onclick="getSelectedCheckboxValues()"
                                 style="background-color: var(--wb-renosand);">Whatsapp</button>
                         </div>
@@ -144,10 +144,10 @@
                                         @foreach ($getRm as $rm)
                                             <div class="custom-control custom-radio my-1">
                                                 <input class="custom-control-input" type="radio"
-                                                    id="team_member_{{ $rm->name }}" name="team_members"
-                                                    value="{{ $rm->name }}"
-                                                    {{ isset($filter_params['team_members']) && $filter_params['team_members'] == $rm->name ? 'checked' : '' }}>
-                                                <label for="team_member_{{ $rm->name }}"
+                                                    id="team_member_{{ $rm->id }}" name="team_members"
+                                                    value="{{ $rm->id }}"
+                                                    {{ isset($filter_params['team_members']) && $filter_params['team_members'] == $rm->id ? 'checked' : '' }}>
+                                                <label for="team_member_{{ $rm->id }}"
                                                     class="custom-control-label">{{ $rm->name }}</label>
                                             </div>
                                         @endforeach
@@ -394,12 +394,18 @@
                 .then(data => {})
                 .catch((error) => {});
         }
-
         var isUserRole4 = @json($auth_user->role_id == 4);
         var dashfilters = @json($dashfilters);
-        // console.log(dashfilters)
         const data_url = `{{ route('team.lead.list.ajax') }}?{!! $filter !!}`;
-        $(document).ready(function() {
+        if(isUserRole4){
+            var roleID = @json($auth_user->role_id); 
+        var columnsConfig = [null, null, null, null, null, null, null, null, null, null, null, null, null, null,];
+        var orderConfig = [[1, 'desc']];
+        if(roleID != 5) {
+            orderConfig = [[14, 'desc']];
+        columnsConfig.push({target: 14, data: 17 });
+        }
+            $(document).ready(function() {
             var dataTable;
             if (dashfilters) {
                 $('#serverTable').DataTable({
@@ -415,9 +421,8 @@
                     ajax: {
                         url: data_url,
                     },
-                    order: [
-                        [1, 'desc']
-                    ],
+                    columns: columnsConfig,
+                    order: orderConfig,
                     columnDefs: [{
                         targets: 0,
                         orderable: false
@@ -426,23 +431,19 @@
                         const td_elements = row.querySelectorAll('td');
                         if (isUserRole4) {
                             td_elements[0].innerHTML =
-                                `<i class="fa fa-arrow-rotate-right"></i><span class="mx-1">${data[15]}</span><br/><input type="checkbox" class="forward_lead_checkbox" value="${data[3]}">`
+                                `<i class="fa fa-arrow-rotate-right"></i><span class="mx-1">${data[16]}</span><br/><input type="checkbox" class="forward_lead_checkbox" value="${data[3]}">`
                         } else {
                             td_elements[0].innerHTML =
                                 `<input type="checkbox" class="forward_lead_checkbox" value="">`;
                         }
 
-                        if (`{{ $auth_user->role_id }}` == 4) {
                             td_elements[1].innerText = data[0];
-                        td_elements[3].innerText = data[1] ?? 'N/A';
-                        td_elements[4].innerText = data[2] ?? 'N/A';
+                            td_elements[3].innerText = moment(data[1]).format("DD-MMM-YYYY hh:mm a") ?? 'N/A';
+                            td_elements[4].innerText = data[2] ?? 'N/A';
                             td_elements[2].innerText = data[9] ? data[9] : 'N/A';
-
                             td_elements[6].innerText = data[10] ?? 'N/A';
-
                             td_elements[7].innerText = data[4] ? moment(data[4]).format("DD-MMM-YYYY") :
                                 'N/A';
-                                // td_elements[8].innerText = data[5];
                             if (data[6] == 1) {
                                 td_elements[8].innerHTML =
                                     `<span class="badge badge-success">Contacted</span>`;
@@ -450,57 +451,37 @@
                                 td_elements[8].innerHTML =
                                     `<span class="badge badge-danger">Not-Contacted</span>`;
                             }
-
-
                             if (data[7] == 1) {
                                 row.style.background = "#3636361f";
                             }
-                            if (data[16] === 1) {
+                            if (data[17] === 1) {
                                 td_elements[5].innerHTML =
                                     `<div class="d-flex"><div>${data[3]} </div> &nbsp;&nbsp;&nbsp;<i class="fa-brands fa-square-whatsapp" onclick="handle_whatsapp_msg(${data[3]})" id="what_id-${data[3]}" style="font-size: 25px; color: green;"></i></div>`;
                             } else {
                                 td_elements[5].innerHTML =
                                     `<div class="d-flex"><div>${data[3]} </div>&nbsp;&nbsp;&nbsp;<i class="fab fa-whatsapp" onclick="handle_whatsapp_msg(${data[3]})" style="font-size: 25px; color: green;"></i></div>`;
                             }
-                        } else {
-                            td_elements[1].innerText = data[0];
-                        td_elements[3].innerText = data[2] ?? 'N/A';
-                            td_elements[2].innerText = moment(data[1]).format("DD-MMM-YYYY hh:mm a");
-                            td_elements[4].innerText = data[3];
-                            td_elements[5].innerText = data[4] ? moment(data[4]).format("DD-MMM-YYYY") : 'N/A';
-                            if (data[6] == 1) {
-                                td_elements[7].innerHTML =
-                                    `<span class="badge badge-success">Contacted</span>`;
-                            } else {
-                                td_elements[7].innerHTML =
-                                    `<span class="badge badge-danger">Not-Contacted</span>`;
-                            }
-                            td_elements[6].innerText = data[5];
-                            if (data[7] == 1) {
-                                row.style.background = "#3636361f";
-                            }
+                  
 
-                        }
-
-                        if (`{{ $auth_user->role_id }}` == 4) {
+                      
                             row.style.background = data[8];
                             td_elements[9].innerHTML = data[11] ?? 'N/A';
                             td_elements[10].innerHTML = data[12] ?? 'N/A';
                             td_elements[11].innerHTML = data[9] ?? 'N/A';
                             td_elements[13].innerHTML = data[5] ?? 'N/A';
-                            if (data[14] != null) {
-                                last_forward_by = data[14].replace('&lt;', '<');
+                            if (data[15] != null) {
+                                last_forward_by = data[15].replace('&lt;', '<');
                                 last_forward_by = last_forward_by.replace('&gt;', '>');
                             } else {
                                 last_forward_by = 'N/A';
                             }
                             td_elements[12].innerHTML = last_forward_by;
                             td_elements[14].innerHTML =
-                                `<button onclick="handle_get_forward_info(${data[0]})" class="btn mx-2 p-0 px-2 btn-info d-flex align-items-center" title="Forward info" style="column-gap: 5px;"><i class="fa fa-share-alt" style="font-size: 15px;"></i>${data[17]}</button>`
-                        }
+                                `<button onclick="handle_get_forward_info(${data[0]})" class="btn mx-2 p-0 px-2 btn-info d-flex align-items-center" title="Forward info" style="column-gap: 5px;"><i class="fa fa-share-alt" style="font-size: 15px;"></i>${data[18]}</button>`
+                        
 
                         for (let i = 1; i < 12; i++) {
-                            if (i !== 4 && td_elements[i]) {
+                            if (i !== 5 && td_elements[i]) {
                                 td_elements[i].style.cursor = "pointer";
                                 td_elements[i].setAttribute('onclick', `handle_view_lead(${data[0]})`);
                             }
@@ -526,9 +507,8 @@
                             });
                         },
                     },
-                    order: [
-                        [1, 'desc']
-                    ],
+                    columns: columnsConfig,
+                    order: orderConfig,
                     columnDefs: [{
                         targets: 0,
                         orderable: false
@@ -537,23 +517,21 @@
                         const td_elements = row.querySelectorAll('td');
                         if (isUserRole4) {
                             td_elements[0].innerHTML =
-                                `<i class="fa fa-arrow-rotate-right"></i><span class="mx-1">${data[15]}</span><br/><input type="checkbox" class="forward_lead_checkbox" value="${data[3]}">`
+                                `<i class="fa fa-arrow-rotate-right"></i><span class="mx-1">${data[16]}</span><br/><input type="checkbox" class="forward_lead_checkbox" value="${data[3]}">`
                         } else {
                             td_elements[0].innerHTML =
                                 `<input type="checkbox" class="forward_lead_checkbox" value="">`;
                         }
 
-                        if (`{{ $auth_user->role_id }}` == 4) {
                             td_elements[1].innerText = data[0];
-                        td_elements[3].innerText = data[1] ?? 'N/A';
-                        td_elements[4].innerText = data[2] ?? 'N/A';
+                            td_elements[3].innerText = moment(data[1]).format("DD-MMM-YYYY hh:mm a")?? 'N/A';
+                            td_elements[4].innerText = data[2] ?? 'N/A';
                             td_elements[2].innerText = data[9] ? data[9] : 'N/A';
 
                             td_elements[6].innerText = data[10] ?? 'N/A';
 
                             td_elements[7].innerText = data[4] ? moment(data[4]).format("DD-MMM-YYYY") :
                                 'N/A';
-                                // td_elements[8].innerText = data[5];
                             if (data[6] == 1) {
                                 td_elements[8].innerHTML =
                                     `<span class="badge badge-success">Contacted</span>`;
@@ -566,52 +544,34 @@
                             if (data[7] == 1) {
                                 row.style.background = "#3636361f";
                             }
-                            if (data[16] === 1) {
+                            if (data[17] === 1) {
                                 td_elements[5].innerHTML =
                                     `<div class="d-flex"><div>${data[3]} </div> &nbsp;&nbsp;&nbsp;<i class="fa-brands fa-square-whatsapp" onclick="handle_whatsapp_msg(${data[3]})" id="what_id-${data[3]}" style="font-size: 25px; color: green;"></i></div>`;
                             } else {
                                 td_elements[5].innerHTML =
                                     `<div class="d-flex"><div>${data[3]} </div>&nbsp;&nbsp;&nbsp;<i class="fab fa-whatsapp" onclick="handle_whatsapp_msg(${data[3]})" style="font-size: 25px; color: green;"></i></div>`;
                             }
-                        } else {
-                            td_elements[1].innerText = data[0];
-                        td_elements[3].innerText = data[2] ?? 'N/A';
-                            td_elements[2].innerText = moment(data[1]).format("DD-MMM-YYYY hh:mm a");
-                            td_elements[4].innerText = data[3];
-                            td_elements[5].innerText = data[4] ? moment(data[4]).format("DD-MMM-YYYY") : 'N/A';
-                            if (data[6] == 1) {
-                                td_elements[7].innerHTML =
-                                    `<span class="badge badge-success">Contacted</span>`;
-                            } else {
-                                td_elements[7].innerHTML =
-                                    `<span class="badge badge-danger">Not-Contacted</span>`;
-                            }
-                            td_elements[6].innerText = data[5];
-                            if (data[7] == 1) {
-                                row.style.background = "#3636361f";
-                            }
+                        
 
-                        }
-
-                        if (`{{ $auth_user->role_id }}` == 4) {
+                        
                             row.style.background = data[8];
                             td_elements[9].innerHTML = data[11] ?? 'N/A';
                             td_elements[10].innerHTML = data[12] ?? 'N/A';
-                            td_elements[11].innerHTML = data[9] ?? 'N/A';
+                            td_elements[11].innerHTML = data[13] ?? 'N/A';
                             td_elements[13].innerHTML = data[5] ?? 'N/A';
-                            if (data[14] != null) {
-                                last_forward_by = data[14].replace('&lt;', '<');
+                            if (data[15] != null) {
+                                last_forward_by = data[15].replace('&lt;', '<');
                                 last_forward_by = last_forward_by.replace('&gt;', '>');
                             } else {
                                 last_forward_by = 'N/A';
                             }
                             td_elements[12].innerHTML = last_forward_by;
                             td_elements[14].innerHTML =
-                                `<button onclick="handle_get_forward_info(${data[0]})" class="btn mx-2 p-0 px-2 btn-info d-flex align-items-center" title="Forward info" style="column-gap: 5px;"><i class="fa fa-share-alt" style="font-size: 15px;"></i>${data[17]}</button>`
-                        }
+                                `<button onclick="handle_get_forward_info(${data[0]})" class="btn mx-2 p-0 px-2 btn-info d-flex align-items-center" title="Forward info" style="column-gap: 5px;"><i class="fa fa-share-alt" style="font-size: 15px;"></i>${data[18]}</button>`
+                        
 
                         for (let i = 1; i < 12; i++) {
-                            if (i !== 4 && td_elements[i]) {
+                            if (i !== 5 && td_elements[i]) {
                                 td_elements[i].style.cursor = "pointer";
                                 td_elements[i].setAttribute('onclick', `handle_view_lead(${data[0]})`);
                             }
@@ -645,9 +605,9 @@
             console.log(selectedValues);
             let phonenum = document.getElementById('phone_inp_id_m');
             phonenum.value = selectedValues;
-            if(selectedValues.length > 0){
+            if (selectedValues.length > 0) {
                 manageWhatsappChatModal.show();
-            }else{
+            } else {
                 toastr.info("Select the lead's which you want to send messages.");
             }
         }
@@ -701,6 +661,139 @@
                     window.location.reload();
                 }, 2000);
             });
+        }
+        }else{
+
+            // vm start
+            $(document).ready(function() {
+            var dataTable;
+            if (dashfilters) {
+                $('#serverTable').DataTable({
+                    pageLength: 10,
+                    processing: true,
+                    loading: true,
+                    language: {
+                        search: "_INPUT_", // Removes the 'Search' field label
+                        searchPlaceholder: "Type here to search..", // Placeholder for the search box
+                        // processing: `<i class="fa fa-spinner fa-spin fa-3x fa-fw"></i><span class="sr-only">Loading...</span>`, // loader
+                    },
+                    serverSide: true,
+                    ajax: {
+                        url: data_url,
+                    },
+                    order: [
+                        [1, 'desc']
+                    ],
+                    columnDefs: [{
+                        targets: 0,
+                        orderable: false
+                    }],
+                    rowCallback: function(row, data, index) {
+                        const td_elements = row.querySelectorAll('td');
+                        
+                            td_elements[0].innerHTML =
+                                `<input type="checkbox" class="forward_lead_checkbox" value="">`;
+    
+                            td_elements[1].innerText = data[0];
+                        td_elements[3].innerText = data[2] ?? 'N/A';
+                            td_elements[2].innerText = moment(data[1]).format("DD-MMM-YYYY hh:mm a");
+                            td_elements[4].innerText = data[3];
+                            td_elements[5].innerText = data[4] ? moment(data[4]).format("DD-MMM-YYYY") : 'N/A';
+                            if (data[6] == 1) {
+                                td_elements[7].innerHTML =
+                                    `<span class="badge badge-success">Contacted</span>`;
+                            } else {
+                                td_elements[7].innerHTML =
+                                    `<span class="badge badge-danger">Not-Contacted</span>`;
+                            }
+                            td_elements[6].innerText = data[5];
+                            if (data[7] == 1) {
+                                row.style.background = "#3636361f";
+                            }
+
+                        for (let i = 1; i < 7; i++) {
+                            if (i !== 4 && td_elements[i]) {
+                                td_elements[i].style.cursor = "pointer";
+                                td_elements[i].setAttribute('onclick', `handle_view_lead(${data[0]})`);
+                            }
+                        }
+                    }
+                });
+            } else {
+                dataTable = $('#serverTable').DataTable({
+                    pageLength: 10,
+                    processing: true,
+                    loading: true,
+                    language: {
+                        search: "_INPUT_",
+                        searchPlaceholder: "Type here to search..",
+                    },
+                    serverSide: true,
+                    ajax: {
+                        url: "{{ route('team.lead.list.ajax') }}",
+                        data: function(d) {
+                            var formData = $('#filters-form').serializeArray();
+                            formData.forEach(function(item) {
+                                d[item.name] = item.value;
+                            });
+                        },
+                    },
+                    order: [
+                        [1, 'desc']
+                    ],
+                    columnDefs: [{
+
+                        targets: 0,
+                        orderable: false
+                    }],
+                    rowCallback: function(row, data, index) {
+                        const td_elements = row.querySelectorAll('td');
+                        
+                            td_elements[0].innerHTML =
+                                `<input type="checkbox" class="forward_lead_checkbox" value="">`;
+    
+                            td_elements[1].innerText = data[0];
+                        td_elements[3].innerText = data[2] ?? 'N/A';
+                            td_elements[2].innerText = moment(data[1]).format("DD-MMM-YYYY hh:mm a");
+                            td_elements[4].innerText = data[3];
+                            td_elements[5].innerText = data[4] ? moment(data[4]).format("DD-MMM-YYYY") : 'N/A';
+                            if (data[6] == 1) {
+                                td_elements[7].innerHTML =
+                                    `<span class="badge badge-success">Contacted</span>`;
+                            } else {
+                                td_elements[7].innerHTML =
+                                    `<span class="badge badge-danger">Not-Contacted</span>`;
+                            }
+                            td_elements[6].innerText = data[5];
+                            if (data[7] == 1) {
+                                row.style.background = "#3636361f";
+                            }
+
+                        for (let i = 1; i < 7; i++) {
+                                td_elements[i].style.cursor = "pointer";
+                                td_elements[i].setAttribute('onclick', `handle_view_lead(${data[0]})`);
+                        }
+                    }
+                });
+            }
+            $('#filters-form').on('submit', function(e) {
+                e.preventDefault();
+                dataTable.ajax.reload();
+                document.querySelector('[data-widget="control-sidebar"]').click();
+            });
+        });
+        $('#select-all-checkbox').on('change', function() {
+            var isChecked = $(this).prop('checked');
+            $('.forward_lead_checkbox').prop('checked', isChecked);
+        });
+        $('.forward_lead_checkbox').on('change', function() {
+            $('#select-all-checkbox').prop('checked', $('.forward_lead_checkbox:checked').length === $(
+                '.forward_lead_checkbox').length);
+        });
+        function handle_view_lead(lead_id) {
+            window.open(`{{ route('team.lead.view') }}/${lead_id}`);
+        }
+
         }
     </script>
 @endsection

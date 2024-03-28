@@ -200,6 +200,12 @@ $uri = end($uri_arr);
                             <p>Activty Logs</p>
                         </a>
                     </li>
+                    <li class="nav-item">
+                        <a href="{{route('admin.editEnv')}}" class="nav-link {{$uri == "editEnv" ? 'active' : ''}}">
+                            <i class="nav-icon fa-solid fa-gear"></i>
+                             <p>CRM Configration</p>
+                        </a>
+                    </li>
                 </li>
             </ul>
         </nav>

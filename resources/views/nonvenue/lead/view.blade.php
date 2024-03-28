@@ -310,7 +310,7 @@
                                 </div>
                             </div>
                         </div>
-                        <div class="card mb-5">
+                        <div class="card mb-5" id="get_nvrm_help_messages_card">
                             <div class="card-header text-light" style="background-color: var(--wb-renosand);">
                                 <h3 class="card-title">Vendor Help Section</h3>
                             </div>
@@ -338,7 +338,7 @@
                                                 </td>
                                                 <td class="text-nowrap">{{date('d-M-Y h:i a', strtotime($list->created_at))}}</td>
                                                 <td class="text-nowrap">{{$list->created_by_name}} -- {{$list->category_name}}</td>
-                                                
+
                                             </tr>
                                             @endforeach
                                             @else

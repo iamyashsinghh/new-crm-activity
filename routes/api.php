@@ -39,23 +39,80 @@ Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
     return $request->user();
 });
 
-function get_assining_rm() {
+function getAssigningRm() {
+    DB::beginTransaction();
     try {
-        $rms = DB::table('team_members')->selectRaw("GROUP_CONCAT(name) AS concatenated_name")->where(['role_id' => 4, 'status' => 1])->groupBy('role_id')->first();
-        $rms_count = TeamMember::where(['role_id' => 4, 'status' => 1])->count();
-        $leads = Lead::orderBy('lead_id', 'desc')->limit($rms_count - 1)->get();
-
-        $existing_assigni_arr = [];
-        foreach ($leads as $lead) {
-            array_push($existing_assigni_arr, $lead->assign_to);
+        $firstRmWithIsNext = TeamMember::where(['role_id' => 4, 'status' => 1, 'is_next' => 1])
+                                       ->orderBy('id', 'asc')
+                                       ->first();
+        if ($firstRmWithIsNext) {
+            TeamMember::where(['role_id' => 4, 'status' => 1])
+                      ->where('id', '!=', $firstRmWithIsNext->id)
+                      ->update(['is_next' => 0]);
         }
-        $a = array_diff(explode(',', $rms->concatenated_name), $existing_assigni_arr);
-        return reset($a);
-    } catch (Exception $e) {
-        return null;
-    }
-};
+        if (!$firstRmWithIsNext) {
+            $firstRmWithIsNext = TeamMember::where(['role_id' => 4, 'status' => 1])
+                                           ->orderBy('id', 'asc')
+                                           ->first();
+            if (!$firstRmWithIsNext) {
+                throw new Exception('No RM available');
+            }
+            $firstRmWithIsNext->is_next = 1;
+            $firstRmWithIsNext->save();
+            DB::commit();
+            return $firstRmWithIsNext;
+        } else {
+            $firstRmWithIsNext->is_next = 0;
+            $firstRmWithIsNext->save();
+            $nextRm = TeamMember::where(['role_id' => 4, 'status' => 1])
+                                ->where('id', '>', $firstRmWithIsNext->id)
+                                ->orderBy('id', 'asc')
+                                ->first();
 
+            if (!$nextRm) {
+                $nextRm = TeamMember::where(['role_id' => 4, 'status' => 1])
+                                    ->orderBy('id', 'asc')
+                                    ->first();
+            }
+            $nextRm->is_next = 1;
+            $nextRm->save();
+        }
+        DB::commit();
+        return $firstRmWithIsNext;
+    } catch (Exception $e) {
+        \Log::error($e->getMessage());
+        DB::rollback();
+        return response()->json(['error' => $e->getMessage()], 500);
+    }
+}
+
+
+function assignLeadsToRMs() {
+    set_time_limit(300);
+    $leads = Lead::select('lead_id')->whereNull('deleted_at')->get();
+    DB::beginTransaction();
+    try {
+        foreach ($leads as $lead) {
+            $get_rm = getAssigningRm();
+            if (!$get_rm) {
+                throw new Exception('No RM available for assignment.');
+            }
+                Lead::where('lead_id', $lead->lead_id)->update([
+                'assign_to' => $get_rm->name,
+                'assign_id' => $get_rm->id,
+            ]);
+        }
+        DB::commit();
+        return "Successfully assigned leads to RMs.";
+    } catch (Exception $e) {
+        DB::rollback();
+        Log::error('Failed to assign leads to RMs: ' . $e->getMessage());
+        return "Error during lead assignment: " . $e->getMessage();
+    }
+}
+// Route::get('/assign_leads_to_rms', function () {
+//     return assignLeadsToRMs();
+// });
 
 Route::post('/save_wa', function (Request $request) {
     $name = $request['contacts'][0]['profile']['name'];
@@ -161,7 +218,9 @@ Route::post('/save_wa', function (Request $request) {
             $lead->virtual_number = null;
             $lead->is_whatsapp_msg = 1;
             $lead->whatsapp_msg_time = $current_timestamp;
-            $lead->assign_to = get_assining_rm();
+            $get_rm = getAssigningRm();
+            $lead->assign_to = $get_rm->name;
+            $lead->assign_id = $get_rm->id;
             $lead->save();
         }
 
@@ -214,6 +273,9 @@ function simpleDecrypt($encoded) {
 }
 
 function notify_users_about_lead_interakt_async($mobile ,$name) {
+    if(env('INTERAKT_STATUS') === false){
+        return response()->json(['success' => false, 'alert_type' => 'error', 'message' => "Interakt is disabled."]);
+    }
     $client = new Client();
 
     if (empty($name)) {
@@ -296,8 +358,10 @@ Route::post('/leads', function (Request $request) {
         $lead->done_message = null;
         $lead->lead_color = "#4bff0033"; //green color
         $lead->virtual_number = $call_to_wb_api_virtual_number;
-         $lead->whatsapp_msg_time = $current_timestamp;
-        $lead->assign_to = get_assining_rm();
+        $lead->whatsapp_msg_time = $current_timestamp;
+        $get_rm = getAssigningRm();
+        $lead->assign_to = $get_rm->name;
+        $lead->assign_id = $get_rm->id;
         $lead->save();
         $promise = notify_users_about_lead_interakt_async($mobile, $request->post('name'));
             $promise->then(
@@ -386,10 +450,12 @@ if ($finalValue == $yash) {
         $lead->service_status = false;
         $lead->done_title = null;
         $lead->done_message = null;
-         $lead->whatsapp_msg_time = $current_timestamp;
+        $lead->whatsapp_msg_time = $current_timestamp;
         $lead->lead_color = "#4bff0033"; //green color
         $lead->virtual_number = $call_to_wb_api_virtual_number;
-        $lead->assign_to = get_assining_rm();
+        $get_rm = getAssigningRm();
+        $lead->assign_to = $get_rm->name;
+        $lead->assign_id = $get_rm->id;
         $lead->save();
         $promise = notify_users_about_lead_interakt_async($request->post('mobile'), $request->post('name'));
             $promise->then(
@@ -474,7 +540,9 @@ Route::get('/fetch_leads_from_interakt', function () {
             $lead->done_message = null;
             $lead->whatsapp_msg_time = $current_timestamp;
             $lead->lead_color = "#4bff0033";
-            $lead->assign_to = get_assining_rm();
+            $get_rm = getAssigningRm();
+            $lead->assign_to = $get_rm->name;
+            $lead->assign_id = $get_rm->id;
             $lead->save();
         }
         return response()->json(['success' => true, 'alert_type' => 'success', 'message' => 'Data fetched successfully.']);

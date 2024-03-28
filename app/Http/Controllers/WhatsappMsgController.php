@@ -83,6 +83,9 @@ class WhatsappMsgController extends Controller
 
     public function get_whatsapp_doc($id)
     {
+        if (env('TATA_WHATSAPP_MSG_STATUS') !== true) {
+            return false;
+        }
         $authKey = env('TATA_AUTH_KEY');
         $curl = curl_init();
 
@@ -142,6 +145,9 @@ class WhatsappMsgController extends Controller
 
     public function fetchTemplates(Request $request)
     {
+        if (env('TATA_WHATSAPP_MSG_STATUS') !== true) {
+            return false;
+        }
         $url = 'https://wb.omni.tatatelebusiness.com/templates';
         $token = env("TATA_AUTH_KEY");
         $response = Http::withHeaders([
@@ -227,10 +233,13 @@ class WhatsappMsgController extends Controller
 
     public function whatsapp_msg_send(Request $request)
     {
+        if (env('TATA_WHATSAPP_MSG_STATUS') !== true) {
+            return false;
+        }
         $url = "https://wb.omni.tatatelebusiness.com/whatsapp-cloud/messages";
-        $authToken = "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJwaG9uZU51bWJlciI6Iis5MTg4ODIxOTg5ODkiLCJwaG9uZU51bWJlcklkIjoiMjU2Mzk0NzQwODgzODYwIiwiaWF0IjoxNzA4Njc0OTE4fQ.YCJ7Tkvr447iTYUG-W5UX4T62f9joPaIz2FhRAoBfYI";
+        $authKey = env('TATA_AUTH_KEY');
         $response = Http::withHeaders([
-            'Authorization' => $authToken,
+            'Authorization' => "Bearer $authKey",
             'Content-Type' => 'application/json'
         ])->post($url, [
                     "messaging_product" => "whatsapp",
@@ -260,6 +269,9 @@ class WhatsappMsgController extends Controller
 
     public function whatsapp_msg_send_multiple()
     {
+        if (env('TATA_WHATSAPP_MSG_STATUS') !== true) {
+            return false;
+        }
         $messagesSent = 0;
         $maxMessages = 5;
         $token = env("TATA_AUTH_KEY");
@@ -354,7 +366,7 @@ class WhatsappMsgController extends Controller
                             ]
                         ]
                     ]);
-
+                    Log::info($response);
             $whatsappLogs = new WhatsappMsgLogs([
                 'campaign_name' => $WhatsappBulkMsgTask->campaign_name,
                 'task_id' => $WhatsappBulkMsgTask->id,
@@ -362,7 +374,6 @@ class WhatsappMsgController extends Controller
                 'status' => $response->successful() ? '0' : '1',
             ]);
             $whatsappLogs->save();
-
         }
     }
 

@@ -62,9 +62,9 @@ class LeadController extends Controller
             $page_heading = ucwords(str_replace("_", " ", $dashboard_filters));
         }
         $auth_user = Auth::guard('team')->user();
-        $whatsapp_campaigns = WhatsappCampain::select('id','name')->where('status', 1)->where('assign_to' ,$auth_user->id)->get();
+        $whatsapp_campaigns = WhatsappCampain::select('id', 'name')->where('status', 1)->where('assign_to', $auth_user->id)->get();
 
-        return view('team.venueCrm.lead.list', compact('page_heading', 'filter_params', 'getRm','whatsapp_campaigns'));
+        return view('team.venueCrm.lead.list', compact('page_heading', 'filter_params', 'getRm', 'whatsapp_campaigns'));
     }
 
     public function ajax_list(Request $request)
@@ -86,10 +86,12 @@ class LeadController extends Controller
                 'leads.preference',
                 'leads.locality',
                 'tm.name as created_by',
+                'leads.whatsapp_msg_time',
                 'leads.last_forwarded_by',
                 'leads.enquiry_count',
                 'leads.is_whatsapp_msg',
-                DB::raw("(select count(fwd.id) from lead_forwards as fwd where fwd.lead_id = leads.lead_id) as forwarded_count")
+                DB::raw("(select count(fwd.id) from lead_forwards as fwd where fwd.lead_id = leads.lead_id) as forwarded_count"),
+
             )->leftJoin('team_members as tm', 'tm.id', 'leads.created_by');
             $leads->where('leads.deleted_at', null);
 
@@ -144,7 +146,7 @@ class LeadController extends Controller
             }
 
             if ($request->team_members != null) {
-                $leads->where('leads.assign_to', $request->team_members);
+                $leads->where('leads.assign_id', $request->team_members);
             }
         } else {
             $leads = DB::table('lead_forwards as leads')->select(
@@ -193,39 +195,65 @@ class LeadController extends Controller
             }
         }
 
-        if($auth_user->role_id === 4){
+        if ($auth_user->role_id === 4) {
             if ($request->dashboard_filters != null) {
                 if ($request->dashboard_filters == "leads_received_this_month") {
                     $from = Carbon::today()->startOfMonth();
                     $to = Carbon::today()->endOfMonth();
-                    $leads->whereBetween('leads.lead_datetime', [$from, $to])->where('assign_to', $auth_user->name);
+                    $leads->whereBetween('leads.lead_datetime', [$from, $to])->where('assign_id', $auth_user->id);
                 } elseif ($request->dashboard_filters == "leads_received_today") {
                     $from = Carbon::today()->startOfDay();
                     $to = Carbon::today()->endOfDay();
-                    $leads->whereBetween('leads.lead_datetime', [$from, $to])->where('assign_to', $auth_user->name);
+                    $leads->whereBetween('leads.lead_datetime', [$from, $to])->where('assign_id', $auth_user->id);
                 } elseif ($request->dashboard_filters == "rm_unfollowed_leads") {
                     $currentDateTime = Carbon::now();
-                    $leads->join('tasks', 'leads.lead_id', '=', 'tasks.lead_id')
-                        ->where('leads.lead_status', '!=', 'Done')
-                        ->where('tasks.task_schedule_datetime', '<', $currentDateTime)
-                        ->whereNotNull('tasks.done_datetime')
-                        ->whereNull('leads.deleted_at')
-                        ->distinct('leads.lead_id')
-                        ->where('tasks.created_by', $auth_user->id);
+                    $leads = DB::table('leads')
+                    ->select(
+                        'leads.lead_id as lead_id',
+                        'leads.lead_datetime',
+                        'leads.name',
+                        'leads.mobile',
+                        'leads.event_datetime as event_date',
+                        'leads.lead_status',
+                        'leads.service_status',
+                        'leads.read_status',
+                        'leads.lead_color',
+                        'leads.assign_to',
+                        'leads.source',
+                        'leads.preference',
+                        'leads.locality',
+                        'tm.name as created_by',
+                        'leads.whatsapp_msg_time',
+                        'leads.last_forwarded_by',
+                        'leads.enquiry_count',
+                        'leads.is_whatsapp_msg',
+                        DB::raw("(select count(fwd.id) from lead_forwards as fwd where fwd.lead_id = leads.lead_id) as forwarded_count")
+                    )
+                    ->leftJoin('team_members as tm', 'tm.id', '=', 'leads.created_by')
+                    ->whereNull('leads.deleted_at')
+                    ->leftJoin(DB::raw("
+                        (SELECT tasks.lead_id
+                        FROM tasks
+                        WHERE tasks.deleted_at IS NULL
+                        AND tasks.created_by = $auth_user->id
+                        GROUP BY tasks.lead_id
+                        HAVING COUNT(CASE WHEN tasks.done_datetime IS NULL THEN 1 END) = 0) as completed_tasks
+                    "), 'completed_tasks.lead_id', '=', 'leads.lead_id')
+                    ->whereNotNull('completed_tasks.lead_id') // Ensures the join found a match, thus the lead has all tasks completed
+                    ->where('leads.lead_status', '!=', 'Done');
                 } elseif ($request->dashboard_filters == "unread_leads_this_month") {
                     $from = Carbon::today()->startOfMonth();
                     $to = Carbon::today()->endOfMonth();
-                    $leads->whereBetween('leads.lead_datetime', [$from, $to])->where('assign_to', $auth_user->name)->where('leads.read_status', false);
+                    $leads->whereBetween('leads.lead_datetime', [$from, $to])->where('assign_id', $auth_user->id)->where('leads.read_status', false);
                 } elseif ($request->dashboard_filters == "unread_leads_today") {
                     $from = Carbon::today()->startOfDay();
                     $to = Carbon::today()->endOfDay();
-                    $leads->whereBetween('leads.lead_datetime', [$from, $to])->where('assign_to', $auth_user->name)->where('leads.read_status', false);
+                    $leads->whereBetween('leads.lead_datetime', [$from, $to])->where('assign_id', $auth_user->id)->where('leads.read_status', false);
                 } elseif ($request->dashboard_filters == "total_unread_leads_overdue") {
-                    $leads->where('leads.read_status', false)->where('leads.lead_datetime', '<', Carbon::today())->where('assign_to', $auth_user->name);
+                    $leads->where('leads.read_status', false)->where('leads.lead_datetime', '<', Carbon::today())->where('assign_id', $auth_user->id);
                 } elseif ($request->dashboard_filters == "forward_leads_this_month") {
                     $from = Carbon::today()->startOfMonth();
                     $to = Carbon::today()->endOfMonth();
-    
                     $leads = DB::table('lead_forward_infos as fwd_info')->select(
                         'leads.lead_id as lead_id',
                         'leads.lead_datetime',
@@ -241,9 +269,11 @@ class LeadController extends Controller
                         'leads.preference',
                         'leads.locality',
                         'tm.name as created_by',
+                        'leads.whatsapp_msg_time',
                         'leads.last_forwarded_by',
                         'leads.enquiry_count',
-                        DB::raw("(select count(fwd.id) from lead_forwards as fwd where fwd.lead_id = leads.lead_id) as forwarded_count")
+                        'leads.is_whatsapp_msg',
+                        DB::raw("(select count(fwd.id) from lead_forwards as fwd where fwd.lead_id = leads.lead_id) as forwarded_count"),
                     )->join('leads', ['leads.lead_id' => 'fwd_info.lead_id'])
                         ->leftJoin('team_members as tm', 'tm.id', 'leads.created_by')
                         ->where(['fwd_info.forward_from' => $auth_user->id])->groupBy('fwd_info.lead_id');
@@ -266,22 +296,19 @@ class LeadController extends Controller
                         'leads.preference',
                         'leads.locality',
                         'tm.name as created_by',
+                        'leads.whatsapp_msg_time',
                         'leads.last_forwarded_by',
                         'leads.enquiry_count',
-                        DB::raw("(select count(fwd.id) from lead_forwards as fwd where fwd.lead_id = leads.lead_id) as forwarded_count")
+                        'leads.is_whatsapp_msg',
+                        DB::raw("(select count(fwd.id) from lead_forwards as fwd where fwd.lead_id = leads.lead_id) as forwarded_count"),
                     )->join('leads', ['leads.lead_id' => 'fwd_info.lead_id'])
-                        ->leftJoin('team_members as tm', 'tm.id', 'leads.created_by')->where(['fwd_info.forward_from' => $auth_user->id])->groupBy('fwd_info.lead_id');
+                        ->leftJoin('team_members as tm', 'tm.id', 'leads.created_by')
+                        ->where(['fwd_info.forward_from' => $auth_user->id])->groupBy('fwd_info.lead_id');
                     $leads->whereBetween('fwd_info.updated_at', [$from, $to]);
-                } elseif ($request->dashboard_filters == "unfollowed_leads") {
-                    $leads->join('tasks', ['tasks.id' => 'leads.task_id'])->where('leads.lead_status', '!=', 'Done')->whereNotNull('tasks.done_datetime')->whereNull('tasks.deleted_at')
-                        ->whereNotExists(function ($query) {
-                            $query->select(DB::raw(1))
-                                ->from('bookings')
-                                ->whereRaw('bookings.id = leads.booking_id');
-                        })->get();
+
                 }
             }
-        }else{
+        } else {
             if ($request->dashboard_filters != null) {
                 if ($request->dashboard_filters == "leads_received_this_month") {
                     $from = Carbon::today()->startOfMonth();
@@ -313,7 +340,6 @@ class LeadController extends Controller
                 } elseif ($request->dashboard_filters == "forward_leads_this_month") {
                     $from = Carbon::today()->startOfMonth();
                     $to = Carbon::today()->endOfMonth();
-    
                     $leads = DB::table('lead_forward_infos as fwd_info')->select(
                         'leads.lead_id as lead_id',
                         'leads.lead_datetime',
@@ -370,7 +396,6 @@ class LeadController extends Controller
                 }
             }
         }
-
         return datatables($leads)->make(false);
     }
 
@@ -520,24 +545,24 @@ class LeadController extends Controller
             $lead->alternate_mobile = $leadData->alternate_mobile;
             $lead->event_datetime = $leadData->event_datetime;
             if ($lead->save()) {
-                    $exist_lead_forward = nvrmLeadForward::where(['lead_id' => $lead->id, 'forward_to' => $auth_user->nvrm_id])->first();
-                    if (!$exist_lead_forward) {
-                        $lead_forward = new nvrmLeadForward();
-                        $lead_forward->lead_id = $lead->id;
-                        $lead_forward->forward_to = $auth_user->nvrm_id;
-                        $lead_forward->lead_datetime = $this->current_timestamp;
-                        $lead_forward->name = $lead->name;
-                        $lead_forward->email = $lead->email;
-                        $lead_forward->mobile = $lead->mobile;
-                        $lead_forward->alternate_mobile = $lead->alternate_mobile;
-                        $lead_forward->address = $lead->address;
-                        $lead_forward->lead_status = "Active";
-                        $lead_forward->read_status = false;
-                        $lead_forward->done_title = null;
-                        $lead_forward->done_message = null;
-                        $lead_forward->event_datetime = $lead->event_datetime;
-                        $lead_forward->save();
-                    }
+                $exist_lead_forward = nvrmLeadForward::where(['lead_id' => $lead->id, 'forward_to' => $auth_user->nvrm_id])->first();
+                if (!$exist_lead_forward) {
+                    $lead_forward = new nvrmLeadForward();
+                    $lead_forward->lead_id = $lead->id;
+                    $lead_forward->forward_to = $auth_user->nvrm_id;
+                    $lead_forward->lead_datetime = $this->current_timestamp;
+                    $lead_forward->name = $lead->name;
+                    $lead_forward->email = $lead->email;
+                    $lead_forward->mobile = $lead->mobile;
+                    $lead_forward->alternate_mobile = $lead->alternate_mobile;
+                    $lead_forward->address = $lead->address;
+                    $lead_forward->lead_status = "Active";
+                    $lead_forward->read_status = false;
+                    $lead_forward->done_title = null;
+                    $lead_forward->done_message = null;
+                    $lead_forward->event_datetime = $lead->event_datetime;
+                    $lead_forward->save();
+                }
                 $leadEventsData = Event::where('lead_id', $rm_lead_id)->get();
                 foreach ($leadEventsData as $leadEventData) {
                     $event = new NvEvent();

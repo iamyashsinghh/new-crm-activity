@@ -452,7 +452,7 @@ if (isset($filter_params['lead_status'])) {
                 let forwarded_count = data.nvrm_forwarded_count+data.nv_forwarded_count;
                 let action_btns = '';
                 if(data.unresolved_notes != ''){
-                    action_btns = `<a href="{{route('admin.nvlead.view')}}/${data.id}" target="_blank" class="text-dark mx-2" title="${data.unresolved_notes.split(', ').join('\n')}"><i class="fa fa-eye" style="padding: 5px; border-radius: 50%; font-size: 15px; background-color: green; color: white;"></i></a>
+                    action_btns = `<a href="{{route('admin.nvlead.view')}}/${data.id}#get_nvrm_help_messages_card" target="_blank" class="text-dark mx-2" title="${data.unresolved_notes.split(', ').join('\n')}"><i class="fa fa-eye" style="padding: 5px; border-radius: 50%; font-size: 15px; background-color: green; color: white;"></i></a>
                 <a href="{{route('admin.nvlead.delete')}}/${data.id}" onclick="return confirm('Are you sure want to delete?')" class="text-danger mx-2" title="Delete"><i class="fa fa-trash-alt" style="font-size: 15px;"></i></a>
                 <button onclick="handle_get_nvlead_forwarded_info(${data.id})" class="btn mx-2 p-0 px-2 btn-info" title="Forward info"><i class="fa fa-share-alt" style="font-size: 15px;"></i> ${forwarded_count}</button>`
 

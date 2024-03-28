@@ -69,8 +69,8 @@
                                 </div>
                                 <div class="col-sm-6 mb-3">
                                     <div class="form-group">
-                                        <label for="status_select">Role <span class="text-danger">*</span></label>
-                                        <select class="form-control" name="role" id="status_select" required>
+                                        <label for="role_select">Role <span class="text-danger">*</span></label>
+                                        <select class="form-control" name="role" id="role_select" required>
                                             <option value="" selected disabled>Select role</option>
                                             @foreach ($roles as $list)
                                                 <option value="{{ $list->id }}"
@@ -109,7 +109,7 @@
                                         </select>
                                     </div>
                                 </div>
-                                <div class="col-sm-12 mb-3">
+                                <div class="col-sm-12 mb-3" id="nvrm_selection">
                                     <div class="form-group">
                                         <label for="nv_nvrm_inp">Select NVRM (<i style="font-size:13px">Select Nvrm if this is rm account</i>)</label>
                                         <div class="d-flex">
@@ -147,4 +147,23 @@
             </div>
         </section>
     </div>
+@endsection
+@section('footer-script')
+<script src="//cdn.datatables.net/1.13.1/js/jquery.dataTables.min.js"></script>
+<script src="{{asset('plugins/moment/moment.min.js')}}"></script>
+<script>
+    $(document).ready(function() {
+        toggleNVRMSelection($('#role_select').val());
+        $('#role_select').change(function() {
+            toggleNVRMSelection($(this).val());
+        });
+        function toggleNVRMSelection(selectedRole) {
+            if(selectedRole == '4') {
+                $('#nvrm_selection').show();
+            } else {
+                $('#nvrm_selection').hide();
+            }
+        }
+    });
+</script>
 @endsection

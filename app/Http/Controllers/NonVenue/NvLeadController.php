@@ -156,14 +156,15 @@ class NvLeadController extends Controller
             } elseif ($request->dashboard_filters == "leads_received_today") {
                 $leads->where('nvrm_lead_forwards.lead_datetime', 'like', "%$current_date%")->whereNull('nvrm_lead_forwards.deleted_at')->where('nvrm_lead_forwards.forward_to', $auth_user->id);
             } elseif ($request->dashboard_filters == "nvrm_unfollowed_leads") {
-                $leads->join('nvrm_tasks', 'nvrm_lead_forwards.lead_id', '=', 'nvrm_tasks.lead_id')
-                    ->where('nvrm_lead_forwards.lead_status', '!=', 'Done')
-                    ->where('nvrm_tasks.task_schedule_datetime', '<', $currentDateTime)
-                    ->whereNotNull('nvrm_tasks.done_datetime')
-                    ->whereNull('nvrm_lead_forwards.deleted_at')
-                    ->whereNull('nvrm_tasks.deleted_at')
-                    ->distinct('nvrm_lead_forwards.lead_id')
-                    ->where('nvrm_tasks.created_by', $auth_user->id);
+                $leads->whereHas('nvrm_tasks', function ($query) use ($auth_user) {
+                    $query->whereNotNull('done_datetime')
+                        ->whereNull('deleted_at')
+                        ->where('created_by', $auth_user->id);
+                })
+                ->whereDoesntHave('nvrm_tasks', function ($query) {
+                    $query->whereNull('done_datetime');
+                })
+                ->distinct('lead_id');
             }elseif($request->dashboard_filters == "unread_leads_this_month"){
                 $leads->where('nvrm_lead_forwards.lead_datetime', 'like', "%$current_month%")->whereNull('nvrm_lead_forwards.deleted_at')->where(['nvrm_lead_forwards.read_status' => false])->where('nvrm_lead_forwards.forward_to', $auth_user->id);
             }elseif($request->dashboard_filters == "unread_leads_today"){

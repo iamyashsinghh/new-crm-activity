@@ -10,7 +10,7 @@ use Illuminate\Support\Facades\Validator;
 
 class NvrmMessageController extends Controller {
     public function manage_process(Request $request) {
-        $is_budget_valid = $request->budget !== null ? 'required|int|min:3' : '';
+        $is_budget_valid = $request->budget !== null ? 'required|int' : '';
         $is_message_valid = $request->message !== null ? 'required|string' : '';
         $validate = Validator::make($request->all(), [
             'service_category' => 'required|int|exists:vendor_categories,id',

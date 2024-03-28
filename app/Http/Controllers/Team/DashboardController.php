@@ -32,15 +32,22 @@ class DashboardController extends Controller
         $currentDateEnd = Carbon::now()->endOfDay();
         $currentMonthStart = Carbon::now()->startOfMonth();
         $currentMonthEnd = Carbon::now()->endOfMonth();
-        $rm_unfollowed_leads = Lead::join('tasks', 'leads.lead_id', '=', 'tasks.lead_id')
-            ->where('leads.lead_status', '!=', 'Done')
-            ->where('tasks.task_schedule_datetime', '<', $currentDateTime)
-            ->whereNotNull('tasks.done_datetime')
-            ->whereNull('leads.deleted_at')
-            ->whereNull('tasks.deleted_at')
-            ->distinct('leads.lead_id')
-            ->where('tasks.created_by', $auth_user->id)
-            ->count();
+        $rm_unfollowed_leads = Lead::query()
+        ->where('lead_status', '!=', 'Done')
+        ->whereNull('deleted_at')
+        ->whereExists(function ($query) use ($auth_user) {
+            $query->select(DB::raw(1))
+                  ->from('tasks')
+                  ->whereColumn('tasks.lead_id', 'leads.lead_id')
+                  ->whereNotNull('tasks.done_datetime')
+                  ->whereNull('tasks.deleted_at')
+                  ->where('tasks.created_by', $auth_user->id);
+        })
+        ->whereDoesntHave('get_tasks', function ($query) {
+            $query->whereNull('done_datetime');
+        })
+        ->distinct('lead_id')
+        ->count();
         $rm_task_overdue_leads = Lead::join('tasks', 'leads.lead_id', '=', 'tasks.lead_id')
             ->where('leads.lead_status', '!=', 'Done')
             ->where('tasks.task_schedule_datetime', '<', $currentDateTime)
@@ -115,11 +122,11 @@ class DashboardController extends Controller
 
             $forward_leads_this_month = $forward_leads_today = 0;
         } else {
-            $total_leads_received_this_month = Lead::where('lead_datetime', 'like', "%$current_month%")->where('assign_to', $auth_user->name)->count();
-            $total_leads_received_today = Lead::where('lead_datetime', 'like', "%$current_date%")->where('assign_to', $auth_user->name)->count();
-            $unread_leads_this_month = Lead::where('lead_datetime', 'like', "%$current_month%")->where('read_status', false)->where('assign_to', $auth_user->name)->count();
-            $unread_leads_today = Lead::where('lead_datetime', 'like', "%$current_date%")->where('read_status', false)->where('assign_to', $auth_user->name)->count();
-            $total_unread_leads_overdue = Lead::where('lead_datetime', '<', Carbon::today())->where('read_status', false)->where('assign_to', $auth_user->name)->count();
+            $total_leads_received_this_month = Lead::where('lead_datetime', 'like', "%$current_month%")->where('assign_id', $auth_user->id)->count();
+            $total_leads_received_today = Lead::where('lead_datetime', 'like', "%$current_date%")->where('assign_id', $auth_user->id)->count();
+            $unread_leads_this_month = Lead::where('lead_datetime', 'like', "%$current_month%")->where('read_status', false)->where('assign_id', $auth_user->id)->count();
+            $unread_leads_today = Lead::where('lead_datetime', 'like', "%$current_date%")->where('read_status', false)->where('assign_id', $auth_user->id)->count();
+            $total_unread_leads_overdue = Lead::where('lead_datetime', '<', Carbon::today())->where('read_status', false)->where('assign_id', $auth_user->id)->count();
 
             $forward_leads_this_month = LeadForwardInfo::whereBetween('updated_at', [$from, $to])->where('forward_from', $auth_user->id)->groupBy('lead_id')->get()->count();
             $forward_leads_today = LeadForwardInfo::where('updated_at', 'like', "%$current_date%")->where('forward_from', $auth_user->id)->groupBy('lead_id')->get()->count();

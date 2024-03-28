@@ -351,7 +351,7 @@
 
                     pageLength: 10,
                     language: {
-                        "search": "_INPUT_", 
+                        "search": "_INPUT_",
                         "searchPlaceholder": "Type here to search..",
                         processing: `<i class="fa fa-spinner fa-spin fa-3x fa-fw"></i><span class="sr-only">Loading...</span>`, // loader
                     },
@@ -469,13 +469,13 @@
                             td_elements[11].classList = 'd-flex';
                             if(data.unresolved_notes != ''){
                                 td_elements[11].innerHTML =
-                                `<a href="{{route('nonvenue.lead.view')}}/${data.lead_id}" target="_blank" class="text-dark" data-bs-toggle="tooltip" data-bs-html="true" title="${data.unresolved_notes.split(', ').join('\n')}"><i class="fa fa-eye" style="padding: 5px; border-radius: 50%; font-size: 15px; margin-right: 15px; background-color: green; color: white;"></i></a>
+                                `<a href="{{route('nonvenue.lead.view')}}/${data.lead_id}#get_nvrm_help_messages_card" target="_blank" class="text-dark" data-bs-toggle="tooltip" data-bs-html="true" title="${data.unresolved_notes.split(', ').join('\n')}"><i class="fa fa-eye" style="padding: 5px; border-radius: 50%; font-size: 15px; margin-right: 15px; background-color: green; color: white;"></i></a>
                                 <button onclick="handle_get_forward_info(${data.lead_id})" class="btn p-0 px-2 btn-info d-flex align-items-center" title="Forward info" style="column-gap: 5px;"><i class="fa fa-share-alt" style="font-size: 15px;"></i>${data.forwarded_count}</button>`
                             }else{
                             td_elements[11].innerHTML =
                             `<a href="{{route('nonvenue.lead.view')}}/${data.lead_id}" target="_blank" class="text-dark" data-bs-toggle="tooltip" data-bs-html="true" title="View"><i class="fa fa-eye" style="font-size: 15px; margin-right: 15px;"></i></a>
                             <button onclick="handle_get_forward_info(${data.lead_id})" class="btn p-0 px-2 btn-info d-flex align-items-center" title="Forward info" style="column-gap: 5px;"><i class="fa fa-share-alt" style="font-size: 15px;"></i>${data.forwarded_count}</button>`
-                            }      
+                            }
                     }
                 });
             } else {
@@ -605,13 +605,13 @@
                             td_elements[11].classList = 'd-flex';
                             if(data.unresolved_notes != ''){
                                 td_elements[11].innerHTML =
-                                `<a href="{{route('nonvenue.lead.view')}}/${data.lead_id}" target="_blank" class="text-dark" data-bs-toggle="tooltip" data-bs-html="true" title="${data.unresolved_notes.split(', ').join('\n')}"><i class="fa fa-eye" style="padding: 5px; border-radius: 50%; font-size: 15px; margin-right: 15px; background-color: green; color: white;"></i></a>
+                                `<a href="{{route('nonvenue.lead.view')}}/${data.lead_id}#get_nvrm_help_messages_card" target="_blank" class="text-dark" data-bs-toggle="tooltip" data-bs-html="true" title="${data.unresolved_notes.split(', ').join('\n')}"><i class="fa fa-eye" style="padding: 5px; border-radius: 50%; font-size: 15px; margin-right: 15px; background-color: green; color: white;"></i></a>
                                 <button onclick="handle_get_forward_info(${data.lead_id})" class="btn p-0 px-2 btn-info d-flex align-items-center" title="Forward info" style="column-gap: 5px;"><i class="fa fa-share-alt" style="font-size: 15px;"></i>${data.forwarded_count}</button>`
                             }else{
                             td_elements[11].innerHTML =
                             `<a href="{{route('nonvenue.lead.view')}}/${data.lead_id}" target="_blank" class="text-dark" data-bs-toggle="tooltip" data-bs-html="true" title="View"><i class="fa fa-eye" style="font-size: 15px; margin-right: 15px;"></i></a>
                             <button onclick="handle_get_forward_info(${data.lead_id})" class="btn p-0 px-2 btn-info d-flex align-items-center" title="Forward info" style="column-gap: 5px;"><i class="fa fa-share-alt" style="font-size: 15px;"></i>${data.forwarded_count}</button>`
-                            }   
+                            }
                     }
                 });
                 $('#filters-form').on('submit', function(e) {

@@ -8,6 +8,7 @@ use App\Models\nvrmLeadForward;
 use App\Models\TeamMember;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
@@ -47,15 +48,22 @@ class DashboardController extends Controller
         $currentMonthStart = Carbon::now()->startOfMonth();
         $currentMonthEnd = Carbon::now()->endOfMonth();
 
-        $nvrm_unfollowed_leads = nvrmLeadForward::join('nvrm_tasks', 'nvrm_lead_forwards.lead_id', '=', 'nvrm_tasks.lead_id')
-            ->where('nvrm_lead_forwards.lead_status', '!=', 'Done')
-            ->where('nvrm_tasks.task_schedule_datetime', '<', $currentDateTime)
-            ->whereNotNull('nvrm_tasks.done_datetime')
-            ->whereNull('nvrm_lead_forwards.deleted_at')
-            ->whereNull('nvrm_tasks.deleted_at')
-            ->distinct('nvrm_lead_forwards.lead_id')
-            ->where('nvrm_tasks.created_by', $auth_user->id)
-            ->count();
+        $nvrm_unfollowed_leads = nvrmLeadForward::query()
+        ->where('lead_status', '!=', 'Done')
+        ->whereNull('deleted_at')
+        ->whereExists(function ($query) use ($auth_user) {
+            $query->select(DB::raw(1))
+                  ->from('nvrm_tasks')
+                  ->whereColumn('nvrm_tasks.lead_id', 'nvrm_lead_forwards.lead_id')
+                  ->whereNotNull('nvrm_tasks.done_datetime')
+                  ->whereNull('nvrm_tasks.deleted_at')
+                  ->where('nvrm_tasks.created_by', $auth_user->id);
+        })
+        ->whereDoesntHave('nvrm_tasks', function ($query) {
+            $query->whereNull('done_datetime');
+        })
+        ->distinct('lead_id')
+        ->count();
         $nvrm_task_overdue_leads = nvrmLeadForward::join('nvrm_tasks', 'nvrm_lead_forwards.lead_id', '=', 'nvrm_tasks.lead_id')
             ->where('nvrm_lead_forwards.lead_status', '!=', 'Done')
             ->where('nvrm_tasks.task_schedule_datetime', '<', $currentDateTime)
