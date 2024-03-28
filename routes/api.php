@@ -273,7 +273,7 @@ function simpleDecrypt($encoded) {
 }
 
 function notify_users_about_lead_interakt_async($mobile ,$name) {
-    if(env('INTERAKT_STATUS') === false){
+    if(env('INTERAKT_STATUS') !== true){
         return response()->json(['success' => false, 'alert_type' => 'error', 'message' => "Interakt is disabled."]);
     }
     $client = new Client();
